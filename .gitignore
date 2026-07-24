@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Entorno y credenciales
+.env
+*.local
+
+# Compilados
+dist/
+build/
+.angular/
+
+# Respaldos de base de datos
+backups/
+
+# Logs
+*.log
+npm-debug.log*
+
+# macOS y editores
+.DS_Store
+.idea/
+.vscode/

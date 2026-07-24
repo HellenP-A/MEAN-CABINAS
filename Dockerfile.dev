@@ -1,0 +1,17 @@
+FROM node:24-alpine
+
+# Herramientas basicas para trabajar dentro del contenedor
+RUN apk add --no-cache git bash
+
+# Angular CLI fijado a la version del proyecto
+RUN npm install -g @angular/cli@22
+
+# Usuario sin privilegios, ya viene en la imagen base
+USER node
+WORKDIR /workspace
+
+# 4200 para Angular, 3000 para la API
+EXPOSE 4200 3000
+
+# Mantiene el contenedor vivo para trabajar dentro de el
+CMD ["tail", "-f", "/dev/null"]
