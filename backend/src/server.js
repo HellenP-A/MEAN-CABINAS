@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 require('./models');
+const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -22,7 +23,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.use('/api/settings', require('./routes/settings.routes'));
+app.use('/api/cabins', require('./routes/cabins.routes'));
+app.use('/api/guests', require('./routes/guests.routes'));
+app.use('/api/bookings', require('./routes/bookings.routes'));
+app.use('/api/payments', require('./routes/payments.routes'));
+
 app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
+app.use(errorHandler);
 
 // Se conecta primero a la base; sin base no tiene sentido escuchar peticiones
 mongoose
