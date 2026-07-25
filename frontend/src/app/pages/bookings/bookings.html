@@ -125,17 +125,25 @@
     }
 
     <section class="block">
-      <h2 class="block__label">Huésped responsable</h2>
+      <h2 class="block__label">Huésped principal</h2>
 
       @if (frequent().length > 0) {
         <div class="chips">
           @for (guest of frequent(); track guest._id) {
-            <button type="button" class="chip" (click)="pickGuest(guest)">
-              <span class="chip__name">{{ guest.fullName }}</span>
-              @if (guest.companyId) {
-                <span class="chip__company">{{ guest.companyId.name }}</span>
-              }
-            </button>
+            <span class="chip">
+              <button type="button" class="chip__pick" (click)="pickGuest(guest)">
+                <span class="chip__name">{{ guest.fullName }}</span>
+                @if (guest.companyId) {
+                  <span class="chip__company">{{ guest.companyId.name }}</span>
+                }
+              </button>
+
+              <button
+                type="button"
+                class="chip__remove"
+                aria-label="Quitar de la lista"
+                (click)="hideGuest(guest, $event)">×</button>
+            </span>
           }
         </div>
       }

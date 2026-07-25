@@ -18,7 +18,10 @@ async function frequentGuests(limit = 12) {
     { $limit: Number(limit) || 12 }
   ]);
 
-  const guests = await Guest.find({ _id: { $in: grouped.map((item) => item._id) } })
+  const guests = await Guest.find({
+    _id: { $in: grouped.map((item) => item._id) },
+    hiddenFromFrequent: { $ne: true }
+  })
     .populate('companyId', 'name rateType discountPercent')
     .lean();
 

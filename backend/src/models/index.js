@@ -1,6 +1,7 @@
 // Carga todos los modelos para que Mongoose registre sus indices al arrancar
 module.exports = {
   Cabin: require('./Cabin'),
+  Cleaning: require('./Cleaning'),
   Company: require('./Company'),
   Guest: require('./Guest'),
   Booking: require('./Booking'),

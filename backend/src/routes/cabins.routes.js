@@ -1,5 +1,6 @@
 const express = require('express');
 const { Cabin } = require('../models');
+const { cabinStatuses, setCleaningState } = require('../services/cleaningService');
 const {
   findAvailableCabins,
   listCabinsWithAvailability,
@@ -9,6 +10,27 @@ const {
 } = require('../services/bookingService');
 
 const router = express.Router();
+
+// Estado de limpieza: /api/cabins/status?date=AAAA-MM-DD&time=HH:MM
+router.get('/status', async (req, res, next) => {
+  try {
+    const { date, time } = req.query;
+    res.json(await cabinStatuses({ date, time }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Ajuste manual: state 'ready', 'dirty' o vacio para volver al horario
+router.put('/:id/cleaning', async (req, res, next) => {
+  try {
+    const { date, state } = req.body;
+    await setCleaningState(req.params.id, date, state || null);
+    res.json(await cabinStatuses({ date, time: req.body.time }));
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Rejilla de ocupacion: /api/cabins/calendar?from=AAAA-MM-DD&days=14
 router.get('/calendar', async (req, res, next) => {

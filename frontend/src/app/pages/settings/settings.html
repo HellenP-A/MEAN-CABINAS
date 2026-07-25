@@ -68,6 +68,26 @@
       </section>
 
       <section class="card">
+        <h2 class="card__title">Horario de limpieza</h2>
+        <p class="card__note">
+          Entre la hora de salida y la de disponibilidad, la cabina aparece en limpieza. Se puede
+          ajustar a mano desde la pantalla de estado.
+        </p>
+
+        <div class="row">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="field">
+            <mat-label>Hora de salida</mat-label>
+            <input matInput type="time" formControlName="checkoutTime" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="field">
+            <mat-label>Lista a partir de</mat-label>
+            <input matInput type="time" formControlName="readyTime" />
+          </mat-form-field>
+        </div>
+      </section>
+
+      <section class="card">
         <h2 class="card__title">Cabinas</h2>
         <p class="card__note">
           El precio base es lo que paga la primera persona. Cada persona adicional suma el monto

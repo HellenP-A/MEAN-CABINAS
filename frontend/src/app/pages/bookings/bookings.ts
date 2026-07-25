@@ -360,6 +360,17 @@ export class Bookings {
     this.knownGuestId.set(guest._id);
   }
 
+  /**
+   * Saca a un huesped del acceso rapido.
+   * No se borra nada: solo deja de aparecer entre los frecuentes.
+   */
+  hideGuest(guest: FrequentGuest, event: Event): void {
+    event.stopPropagation();
+
+    this.frequent.update((list) => list.filter((item) => item._id !== guest._id));
+    this.api.updateGuest(guest._id, { hiddenFromFrequent: true }).subscribe();
+  }
+
   /** Al elegir empresa a mano, se traen sus condiciones. */
   applyCompanyDefaults(): void {
     const id = this.form.controls.companyId.value;

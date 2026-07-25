@@ -5,6 +5,7 @@ const {
   getFullPropertyRate,
   setFullPropertyRate
 } = require('../services/rateService');
+const { getCleaningWindow, setCleaningWindow } = require('../services/cleaningService');
 
 const router = express.Router();
 
@@ -36,6 +37,23 @@ router.get('/full-property-rate', async (req, res, next) => {
 router.put('/full-property-rate', async (req, res, next) => {
   try {
     const setting = await setFullPropertyRate(req.body);
+    res.json(setting.value);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/cleaning', async (req, res, next) => {
+  try {
+    res.json(await getCleaningWindow());
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/cleaning', async (req, res, next) => {
+  try {
+    const setting = await setCleaningWindow(req.body);
     res.json(setting.value);
   } catch (error) {
     next(error);

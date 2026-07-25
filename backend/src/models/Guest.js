@@ -11,6 +11,8 @@ const guestSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     // Empresa que lo envia, si corresponde. Un huesped particular no lleva ninguna
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
+    // Se oculta del acceso rapido sin borrar al huesped ni sus reservas
+    hiddenFromFrequent: { type: Boolean, default: false },
     notes: { type: String, trim: true }
   },
   { timestamps: true }

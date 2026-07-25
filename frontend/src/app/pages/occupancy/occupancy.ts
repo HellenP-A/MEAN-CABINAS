@@ -1,9 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-
 import { MatButtonModule } from '@angular/material/button';
 
-import { Api, CabinOccupancy } from '../../core/api';
+import { Api, CabinStatus, CleaningWindow } from '../../core/api';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 @Component({
@@ -15,10 +14,6 @@ import { ThemeToggle } from '../../core/theme-toggle';
 export class Occupancy {
   private api = inject(Api);
 
-  // Fecha local en formato AAAA-MM-DD. El backend guarda medianoche UTC,
-  // asi que se compara como texto y no se corre un dia.
-  readonly todayIso = new Date().toLocaleDateString('sv-SE');
-
   readonly todayLabel = new Intl.DateTimeFormat('es-CR', {
     weekday: 'long',
     day: 'numeric',
@@ -26,16 +21,40 @@ export class Occupancy {
     year: 'numeric'
   }).format(new Date());
 
-  cabins = signal<CabinOccupancy[]>([]);
+  cabins = signal<CabinStatus[]>([]);
+  window = signal<CleaningWindow>({ checkoutTime: '10:00', readyTime: '14:00' });
+  time = signal('');
   loading = signal(true);
   errorMessage = signal('');
 
-  busy = computed(() => this.cabins().filter((cabin) => cabin.booking).length);
+  occupied = computed(() => this.cabins().filter((c) => c.state === 'occupied').length);
+  cleaning = computed(() => this.cabins().filter((c) => c.state === 'cleaning').length);
+  available = computed(() => this.cabins().filter((c) => c.state === 'available').length);
 
   constructor() {
-    this.api.occupancy(this.todayIso).subscribe({
-      next: (list) => {
-        this.cabins.set(list);
+    this.load();
+
+    // El estado depende de la hora, asi que se refresca solo cada minuto
+    const timer = setInterval(() => this.load(), 60_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+  }
+
+  private now(): { date: string; time: string } {
+    const now = new Date();
+    return {
+      date: now.toLocaleDateString('sv-SE'),
+      time: now.toTimeString().slice(0, 5)
+    };
+  }
+
+  load(): void {
+    const { date, time } = this.now();
+    this.time.set(time);
+
+    this.api.cabinStatuses(date, time).subscribe({
+      next: (board) => {
+        this.cabins.set(board.cabins);
+        this.window.set(board.window);
         this.loading.set(false);
       },
       error: () => {
@@ -45,20 +64,19 @@ export class Occupancy {
     });
   }
 
-  formatDate(iso: string): string {
-    return new Intl.DateTimeFormat('es-CR', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'UTC'
-    }).format(new Date(iso));
+  /** Marca a mano una cabina como lista o como sucia; vacio vuelve al horario. */
+  mark(cabin: CabinStatus, state: 'ready' | 'dirty' | ''): void {
+    const { date, time } = this.now();
+
+    this.api.setCleaning(cabin._id, { date, time, state }).subscribe({
+      next: (board) => this.cabins.set(board.cabins),
+      error: () => this.errorMessage.set('No fue posible cambiar el estado')
+    });
   }
 
-  /** Marca a quien se va hoy: es la cabina que hay que cobrar y preparar. */
-  leavesToday(iso: string): boolean {
-    return iso.slice(0, 10) === this.todayIso;
-  }
-
-  money(value: number): string {
-    return `₡${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)}`;
+  label(state: string): string {
+    if (state === 'occupied') return 'Ocupada';
+    if (state === 'cleaning') return 'En limpieza';
+    return 'Libre';
   }
 }

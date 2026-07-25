@@ -1,63 +1,75 @@
 <main class="page">
   <header class="page__header">
-    <div>
-      <p class="page__today">{{ todayLabel }}</p>
-      <h1 class="page__title">Cabinas reservadas</h1>
-    </div>
+    <div class="page__bar">
+      <p class="page__date">{{ todayLabel }}</p>
 
-    <div class="page__actions">
-      <a matButton routerLink="/calendario">Calendario</a>
-      <a matButton routerLink="/precios">Precios</a>
+      <nav class="page__nav">
+        <a matButton routerLink="/calendario">Calendario</a>
+        <a matButton routerLink="/reservas">Reservar</a>
+        <a matButton routerLink="/precios">Precios</a>
         <a matButton routerLink="/">Inicio</a>
-      <app-theme-toggle />
+        <app-theme-toggle />
+      </nav>
     </div>
-  </header>
 
-  <p class="resume"><strong>{{ busy() }}</strong> de {{ cabins().length }} ocupadas hoy</p>
+    <h1 class="page__title">Estado de las cabinas</h1>
+  </header>
 
   @if (loading()) {
     <p class="empty">Cargando…</p>
-  } @else if (errorMessage()) {
-    <p class="empty empty--error">{{ errorMessage() }}</p>
   } @else {
+    <div class="tally">
+      <span class="tally__item tally__item--busy">{{ occupied() }} ocupadas</span>
+      <span class="tally__item tally__item--clean">{{ cleaning() }} en limpieza</span>
+      <span class="tally__item tally__item--free">{{ available() }} libres</span>
+      <span class="tally__time">
+        {{ time() }} · salida {{ window().checkoutTime }}, lista {{ window().readyTime }}
+      </span>
+    </div>
+
     <ul class="list">
       @for (cabin of cabins(); track cabin._id) {
-        <li class="cabin" [class.cabin--busy]="cabin.booking">
+        <li class="cabin" [class]="'cabin--' + cabin.state">
           <div class="cabin__number">{{ cabin.number }}</div>
 
           <div class="cabin__body">
-            @if (cabin.booking; as booking) {
-              <p class="cabin__guest">{{ booking.guestId?.fullName ?? 'Sin responsable' }}</p>
+            <p class="cabin__state">{{ label(cabin.state) }}</p>
 
-              <p class="cabin__dates">
-                {{ formatDate(booking.checkIn) }} → {{ formatDate(booking.checkOut) }}
-                @if (leavesToday(booking.checkOut)) {
-                  <span class="cabin__flag">Sale hoy</span>
-                }
-              </p>
-
-              <p class="cabin__meta">
-                {{ booking.guests }} {{ booking.guests === 1 ? 'persona' : 'personas' }} ·
-                {{ booking.nights }} {{ booking.nights === 1 ? 'noche' : 'noches' }}
-                @if (booking.bookingType === 'full') {
-                  · puerta cerrada
-                } @else if (booking.rateType === 'corporate') {
-                  · corporativa
-                }
-                @if (booking.discountPercent > 0) {
-                  · {{ booking.discountPercent }} % desc.
-                }
-              </p>
-
-              <p class="cabin__id">Identificación {{ booking.guestId?.idNumber ?? '—' }}</p>
-              <p class="cabin__total">{{ money(booking.total) }}</p>
+            @if (cabin.state === 'occupied' && cabin.guestName) {
+              <p class="cabin__guest">{{ cabin.guestName }}</p>
+            } @else if (cabin.state === 'cleaning' && cabin.leavingGuest) {
+              <p class="cabin__guest">Salió {{ cabin.leavingGuest }}</p>
             } @else {
-              <p class="cabin__free">Libre</p>
-              <p class="cabin__meta">Hasta {{ cabin.capacity }} personas</p>
+              <p class="cabin__guest">Hasta {{ cabin.capacity }} personas</p>
+            }
+
+            @if (cabin.arrivesToday && cabin.state !== 'occupied') {
+              <p class="cabin__flag">Entra hoy</p>
+            }
+
+            @if (cabin.override) {
+              <p class="cabin__manual">
+                Ajustada a mano
+                <button matButton (click)="mark(cabin, '')">Volver al horario</button>
+              </p>
             }
           </div>
+
+          @if (cabin.state !== 'occupied') {
+            <div class="cabin__action">
+              @if (cabin.state === 'cleaning') {
+                <button matButton="filled" (click)="mark(cabin, 'ready')">Ya está lista</button>
+              } @else {
+                <button matButton="outlined" (click)="mark(cabin, 'dirty')">Marcar sucia</button>
+              }
+            </div>
+          }
         </li>
       }
     </ul>
+
+    @if (errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
   }
 </main>

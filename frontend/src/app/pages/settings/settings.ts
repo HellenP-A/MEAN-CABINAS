@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { Api, Cabin, FullPropertyRate } from '../../core/api';
+import { Api, Cabin, CleaningWindow, FullPropertyRate } from '../../core/api';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 /** Texto con separadores a numero limpio. */
@@ -52,6 +52,8 @@ export class Settings {
     fullMode: ['per_guest' as 'per_guest' | 'flat'],
     fullPerGuest: [''],
     fullFlat: [''],
+    checkoutTime: ['10:00'],
+    readyTime: ['14:00'],
     cabins: this.fb.array<FormGroup>([])
   });
 
@@ -67,14 +69,17 @@ export class Settings {
     forkJoin({
       cabins: this.api.cabins(),
       corporate: this.api.corporateRate(),
-      full: this.api.fullPropertyRate()
+      full: this.api.fullPropertyRate(),
+      cleaning: this.api.cleaningWindow()
     }).subscribe({
-      next: ({ cabins, corporate, full }) => {
+      next: ({ cabins, corporate, full, cleaning }) => {
         this.form.patchValue({
           corporateRate: toText(corporate.rate),
           fullMode: full.mode,
           fullPerGuest: toText(full.ratePerGuest),
-          fullFlat: toText(full.flatRate)
+          fullFlat: toText(full.flatRate),
+          checkoutTime: cleaning.checkoutTime,
+          readyTime: cleaning.readyTime
         });
 
         const array = this.form.controls.cabins as FormArray<FormGroup>;
@@ -152,6 +157,10 @@ export class Settings {
         ratePerGuest: toNumber(value.fullPerGuest ?? ''),
         flatRate: toNumber(value.fullFlat ?? '')
       } as FullPropertyRate),
+      this.api.saveCleaningWindow({
+        checkoutTime: value.checkoutTime ?? '10:00',
+        readyTime: value.readyTime ?? '14:00'
+      } as CleaningWindow),
       ...(cabinCalls.length > 0 ? cabinCalls : [of(null)])
     ]).subscribe({
       next: () => {

@@ -146,6 +146,30 @@ export interface FullPropertyRate {
   flatRate: number;
 }
 
+export interface CabinStatus {
+  _id: string;
+  number: number;
+  name: string;
+  capacity: number;
+  state: 'occupied' | 'cleaning' | 'available';
+  override: 'ready' | 'dirty' | null;
+  guestName: string | null;
+  leavingGuest: string | null;
+  arrivesToday: boolean;
+}
+
+export interface CleaningWindow {
+  checkoutTime: string;
+  readyTime: string;
+}
+
+export interface StatusBoard {
+  date: string;
+  time: string;
+  window: CleaningWindow;
+  cabins: CabinStatus[];
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -251,6 +275,28 @@ export class Api {
 
   saveFullPropertyRate(payload: FullPropertyRate): Observable<FullPropertyRate> {
     return this.http.put<FullPropertyRate>(`${API_URL}/settings/full-property-rate`, payload);
+  }
+
+  /** Estado de limpieza de cada cabina en un momento dado. */
+  cabinStatuses(date: string, time: string): Observable<StatusBoard> {
+    return this.http.get<StatusBoard>(`${API_URL}/cabins/status`, { params: { date, time } });
+  }
+
+  /** Ajuste manual: 'ready', 'dirty' o vacio para volver al horario. */
+  setCleaning(cabinId: string, payload: unknown): Observable<StatusBoard> {
+    return this.http.put<StatusBoard>(`${API_URL}/cabins/${cabinId}/cleaning`, payload);
+  }
+
+  cleaningWindow(): Observable<CleaningWindow> {
+    return this.http.get<CleaningWindow>(`${API_URL}/settings/cleaning`);
+  }
+
+  saveCleaningWindow(payload: CleaningWindow): Observable<CleaningWindow> {
+    return this.http.put<CleaningWindow>(`${API_URL}/settings/cleaning`, payload);
+  }
+
+  updateGuest(id: string, payload: unknown): Observable<Guest> {
+    return this.http.put<Guest>(`${API_URL}/guests/${id}`, payload);
   }
 
   searchGuests(search: string): Observable<Guest[]> {

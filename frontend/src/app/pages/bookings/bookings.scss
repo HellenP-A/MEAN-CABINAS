@@ -253,24 +253,54 @@ mat-form-field {
 }
 
 // Toque rapido: evita volver a escribir los datos de quien ya vino antes
+// Dos botones dentro de una misma pastilla: elegir y quitar
 .chip {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 8px 14px;
+  align-items: stretch;
   border: 1px solid var(--surface-line);
   border-radius: 999px;
   background: var(--surface);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
 }
 
 .chip:hover {
   border-color: var(--river-mid);
+}
+
+.chip__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 6px 8px 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.chip__pick:hover {
   background: rgba(29, 111, 107, 0.08);
+}
+
+.chip__remove {
+  padding: 0 14px 0 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+  opacity: 0.4;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.chip__remove:hover {
+  opacity: 1;
+  color: #b3261e;
 }
 
 .chip__name {
