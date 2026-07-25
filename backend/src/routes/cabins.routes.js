@@ -1,10 +1,34 @@
 const express = require('express');
 const { Cabin } = require('../models');
-const { findAvailableCabins } = require('../services/bookingService');
+const {
+  findAvailableCabins,
+  listCabinsWithAvailability,
+  occupancyByDate,
+  propertyAvailability
+} = require('../services/bookingService');
 
 const router = express.Router();
 
-// Disponibles en un rango: /api/cabins/available?checkIn=&checkOut=&guests=
+// Quien esta en cada cabina en una fecha: /api/cabins/occupancy?date=AAAA-MM-DD
+router.get('/occupancy', async (req, res, next) => {
+  try {
+    res.json(await occupancyByDate(req.query.date));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Todas las cabinas con su estado: /api/cabins/availability?checkIn=&checkOut=
+router.get('/availability', async (req, res, next) => {
+  try {
+    const { checkIn, checkOut } = req.query;
+    res.json(await listCabinsWithAvailability(checkIn, checkOut));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Solo las libres, para cuando se necesita filtrar por capacidad
 router.get('/available', async (req, res, next) => {
   try {
     const { checkIn, checkOut, guests } = req.query;
@@ -14,9 +38,19 @@ router.get('/available', async (req, res, next) => {
   }
 });
 
+// Disponibilidad de la propiedad completa
+router.get('/property', async (req, res, next) => {
+  try {
+    const { checkIn, checkOut } = req.query;
+    res.json(await propertyAvailability(checkIn, checkOut));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/', async (req, res, next) => {
   try {
-    res.json(await Cabin.find().sort({ code: 1 }));
+    res.json(await Cabin.find().sort({ number: 1 }));
   } catch (error) {
     next(error);
   }

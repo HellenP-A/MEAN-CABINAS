@@ -1,19 +1,22 @@
 const { Setting } = require('../models');
 
 const CORPORATE_RATE_KEY = 'corporateRatePerGuest';
+const FULL_PROPERTY_KEY = 'fullPropertyRate';
+const FULL_PROPERTY_MODES = ['per_guest', 'flat'];
 
-/** Tarifa corporativa vigente, editable por el administrador. */
+function fail(message, status = 400) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+/** Tarifa corporativa vigente, por huesped por noche. */
 async function getCorporateRate() {
   const setting = await Setting.findOne({ key: CORPORATE_RATE_KEY });
-  if (!setting) {
-    const error = new Error('La tarifa corporativa no esta configurada');
-    error.status = 400;
-    throw error;
-  }
+  if (!setting) throw fail('La tarifa corporativa no esta configurada');
   return Number(setting.value);
 }
 
-/** Actualiza la tarifa corporativa, o la crea si aun no existe. */
 async function setCorporateRate(value) {
   return Setting.findOneAndUpdate(
     { key: CORPORATE_RATE_KEY },
@@ -23,14 +26,39 @@ async function setCorporateRate(value) {
 }
 
 /**
- * Precio unitario que corresponde a una reserva.
- * Un valor explicito gana sobre ambas tarifas: permite casos puntuales
- * sin tener que cambiar la configuracion.
+ * Tarifa del alquiler a puerta cerrada.
+ * mode 'per_guest' cobra por persona; mode 'flat' cobra un monto fijo por noche.
+ * Se guarda como objeto para poder cambiar de esquema sin tocar el codigo.
  */
-async function resolveRate({ rateType, cabin, explicitRate }) {
-  if (explicitRate != null && explicitRate !== '') return Number(explicitRate);
-  if (rateType === 'corporate') return getCorporateRate();
-  return cabin.pricePerGuest;
+async function getFullPropertyRate() {
+  const setting = await Setting.findOne({ key: FULL_PROPERTY_KEY });
+  if (!setting) throw fail('La tarifa de alquiler completo no esta configurada');
+  return setting.value;
 }
 
-module.exports = { getCorporateRate, setCorporateRate, resolveRate, CORPORATE_RATE_KEY };
+async function setFullPropertyRate({ mode, ratePerGuest, flatRate }) {
+  if (!FULL_PROPERTY_MODES.includes(mode)) {
+    throw fail('El modo debe ser por persona o monto fijo');
+  }
+
+  const value = {
+    mode,
+    ratePerGuest: Number(ratePerGuest) || 0,
+    flatRate: Number(flatRate) || 0
+  };
+
+  return Setting.findOneAndUpdate(
+    { key: FULL_PROPERTY_KEY },
+    { value, label: 'Tarifa de alquiler a puerta cerrada' },
+    { new: true, upsert: true }
+  );
+}
+
+module.exports = {
+  getCorporateRate,
+  setCorporateRate,
+  getFullPropertyRate,
+  setFullPropertyRate,
+  CORPORATE_RATE_KEY,
+  FULL_PROPERTY_KEY
+};

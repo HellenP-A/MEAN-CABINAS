@@ -1,0 +1,61 @@
+<main class="page">
+  <header class="page__header">
+    <div>
+      <p class="page__today">{{ todayLabel }}</p>
+      <h1 class="page__title">Cabinas reservadas</h1>
+    </div>
+
+    <div class="page__actions">
+      <a matButton routerLink="/">Inicio</a>
+      <app-theme-toggle />
+    </div>
+  </header>
+
+  <p class="resume"><strong>{{ busy() }}</strong> de {{ cabins().length }} ocupadas hoy</p>
+
+  @if (loading()) {
+    <p class="empty">Cargando…</p>
+  } @else if (errorMessage()) {
+    <p class="empty empty--error">{{ errorMessage() }}</p>
+  } @else {
+    <ul class="list">
+      @for (cabin of cabins(); track cabin._id) {
+        <li class="cabin" [class.cabin--busy]="cabin.booking">
+          <div class="cabin__number">{{ cabin.number }}</div>
+
+          <div class="cabin__body">
+            @if (cabin.booking; as booking) {
+              <p class="cabin__guest">{{ booking.guestId?.fullName ?? 'Sin responsable' }}</p>
+
+              <p class="cabin__dates">
+                {{ formatDate(booking.checkIn) }} → {{ formatDate(booking.checkOut) }}
+                @if (leavesToday(booking.checkOut)) {
+                  <span class="cabin__flag">Sale hoy</span>
+                }
+              </p>
+
+              <p class="cabin__meta">
+                {{ booking.guests }} {{ booking.guests === 1 ? 'persona' : 'personas' }} ·
+                {{ booking.nights }} {{ booking.nights === 1 ? 'noche' : 'noches' }}
+                @if (booking.bookingType === 'full') {
+                  · puerta cerrada
+                } @else if (booking.rateType === 'corporate') {
+                  · corporativa
+                }
+                @if (booking.discountPercent > 0) {
+                  · {{ booking.discountPercent }} % desc.
+                }
+              </p>
+
+              <p class="cabin__id">Cédula {{ booking.guestId?.idNumber ?? '—' }}</p>
+              <p class="cabin__total">{{ money(booking.total) }}</p>
+            } @else {
+              <p class="cabin__free">Libre</p>
+              <p class="cabin__meta">Hasta {{ cabin.capacity }} personas</p>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</main>

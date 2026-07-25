@@ -1,0 +1,183 @@
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page__title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.block {
+  margin-bottom: 32px;
+}
+
+.block__label {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+// Los campos ocupan todo el ancho y llevan su propia separacion,
+// asi ninguna leyenda se monta sobre el campo siguiente
+mat-form-field {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.block__row {
+  display: flex;
+  gap: 16px;
+
+  mat-form-field {
+    flex: 1;
+  }
+}
+
+.note {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  opacity: 0.65;
+}
+
+.toggles {
+  width: 100%;
+
+  .mat-button-toggle {
+    flex: 1;
+    font-size: 1rem;
+  }
+
+  .mat-button-toggle-label-content {
+    line-height: 56px;
+  }
+}
+
+// Los numeros de personas quedan cuadrados y parejos
+.toggles--numbers .mat-button-toggle {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.summary {
+  padding: 20px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.summary__detail {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  opacity: 0.7;
+}
+
+.summary__line {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 1rem;
+}
+
+.summary__line--discount {
+  color: #2e7d32;
+}
+
+.summary__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 1.125rem;
+
+  strong {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+}
+
+.summary__empty {
+  margin: 0;
+  opacity: 0.6;
+}
+
+.summary__error {
+  margin: 12px 0 0;
+  color: #b3261e;
+  font-weight: 500;
+}
+
+.save {
+  width: 100%;
+  height: 64px;
+  font-size: 1.125rem;
+  border-radius: 16px;
+}
+
+.note--ok {
+  color: #2e7d32;
+  opacity: 1;
+}
+
+.note--warn {
+  color: #b3261e;
+  opacity: 1;
+}
+
+.page__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// Superficies por variable: cambian solas al alternar el modo
+.summary {
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+}
+
+.summary__total {
+  border-top-color: var(--surface-line);
+}
+
+.save {
+  background: var(--river-mid);
+  color: #ffffff;
+}
+
+.page__header {
+  align-items: flex-start;
+}
+
+// La fecha de hoy es lo primero que se lee al abrir la pantalla
+.page__today {
+  margin: 0 0 4px;
+  font-family: var(--mat-sys-brand-family);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--river-mid);
+}
+
+.page__today::first-letter {
+  text-transform: uppercase;
+}
+
+.page__title {
+  font-size: 1.25rem;
+  opacity: 0.7;
+}

@@ -1,0 +1,39 @@
+<main class="welcome">
+  <div class="welcome__corner">
+    <app-theme-toggle />
+  </div>
+
+  <section class="hero">
+    <p class="hero__place">Canalete · Upala</p>
+
+    <h1 class="hero__title">
+      Bienvenidos a
+      <span class="hero__brand">Cabinas El Río</span>
+    </h1>
+
+    <p class="hero__text">
+      Reservas, disponibilidad y pagos, en un solo lugar.
+    </p>
+
+    <a class="hero__action" routerLink="/reservas">Entrar</a>
+
+    <a class="hero__secondary" routerLink="/reservadas">Ver cabinas reservadas</a>
+
+    <p class="hero__hint">15 Cabinas o Puerta Cerrada</p>
+  </section>
+
+  <!-- El rio: es el elemento que da identidad a la pantalla -->
+  <div class="river" aria-hidden="true">
+    <svg class="river__layer river__layer--back" viewBox="0 0 2880 220" preserveAspectRatio="none">
+      <path d="M0,120 C360,60 720,180 1080,120 C1260,90 1350,90 1440,120 C1800,180 2160,60 2520,120 C2700,150 2790,150 2880,120 L2880,220 L0,220 Z" />
+    </svg>
+
+    <svg class="river__layer river__layer--front" viewBox="0 0 2880 220" preserveAspectRatio="none">
+      <path d="M0,160 C300,110 600,200 900,160 C1200,120 1320,140 1440,160 C1740,200 2040,110 2340,160 C2580,200 2700,180 2880,160 L2880,220 L0,220 Z" />
+    </svg>
+  </div>
+
+  <footer class="welcome__footer">
+    <p>© {{ year }} Hellen Pamela Aguilar Noguera</p>
+  </footer>
+</main>
