@@ -1,0 +1,215 @@
+<main class="page">
+  <header class="page__header">
+    <div class="page__bar">
+      <p class="page__date">{{ monthLabel() }}</p>
+
+      <nav class="page__nav">
+        <a matButton routerLink="/reservas">Reservar</a>
+        <a matButton routerLink="/reservadas">Reservadas</a>
+        <a matButton routerLink="/">Inicio</a>
+        <app-theme-toggle />
+      </nav>
+    </div>
+
+    <h1 class="page__title">Calendario</h1>
+  </header>
+
+  <nav class="nav">
+    <button matButton="outlined" (click)="move(-7)">‹ Semana anterior</button>
+    <button matButton="outlined" (click)="goToday()">Hoy</button>
+    <button matButton="outlined" (click)="move(7)">Semana siguiente ›</button>
+  </nav>
+
+  @if (loading()) {
+    <p class="empty">Cargando…</p>
+  } @else if (data(); as data) {
+    <div class="board">
+      <div class="board__head">
+        <div class="board__corner">Cabina</div>
+        <div class="board__days" [style.gridTemplateColumns]="columns()">
+          @for (date of data.dates; track date) {
+            <div
+              class="day"
+              [class.day--today]="date === todayIso"
+              [class.day--weekend]="isWeekend(date)">
+              <span class="day__dow">{{ weekday(date) }}</span>
+              <span class="day__num">{{ dayNumber(date) }}</span>
+              @if (date === todayIso) {
+                <span class="day__tag">HOY</span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      @for (row of rows(); track row.number) {
+        <div class="board__row" [class.board__row--active]="isSelectedRow(row)">
+          <div class="board__cabin">
+            <span class="board__number">{{ row.number }}</span>
+            <span class="board__capacity">{{ row.capacity }}p</span>
+          </div>
+
+          <div class="board__track" [style.gridTemplateColumns]="trackColumns()">
+            @for (date of data.dates; track date; let i = $index) {
+              <div
+                class="free"
+                [class.free--today]="date === todayIso"
+                [style.gridColumn]="(i * 2 + 1) + ' / span 2'"></div>
+            }
+
+            @for (segment of row.segments; track $index) {
+              @if (booking(segment.bookingId); as booking) {
+                <button
+                  type="button"
+                  class="bar"
+                  [class.bar--full]="booking.bookingType === 'full'"
+                  [class.bar--selected]="isSelected(segment.bookingId)"
+                  [style.gridColumn]="segment.colStart + ' / span ' + segment.colSpan"
+                  [title]="row.name + ' · ' + booking.guestName"
+                  (click)="select(segment.bookingId, row)">
+                  <span class="bar__name">{{ booking.guestName }}</span>
+                  <span class="bar__span">{{ span(booking) }}</span>
+                </button>
+              }
+            }
+
+            @if (todayIndex() >= 0) {
+              <div class="today-band" [style.gridColumn]="todayColumn()"></div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <p class="legend">
+      <span class="legend__dot legend__dot--busy"></span> Reservada
+      <span class="legend__dot legend__dot--full"></span> Puerta cerrada
+      <span class="legend__dot legend__dot--today"></span> Hoy
+      <span class="legend__hint">Las barras cortan a media casilla: salida en la mañana, entrada en la tarde</span>
+    </p>
+
+    @if (selected(); as current) {
+      <section class="detail">
+        <div class="detail__head">
+          <div>
+            <p class="detail__cabin">{{ current.cabinName }}</p>
+            <h2 class="detail__name">{{ current.booking.guestName }}</h2>
+          </div>
+          <button matButton (click)="closeDetail()">Cerrar</button>
+        </div>
+
+        @if (!editing()) {
+          <p class="detail__dates">
+            {{ formatDate(current.booking.checkIn) }} → {{ formatDate(current.booking.checkOut) }}
+          </p>
+
+          <dl class="detail__grid">
+            <div><dt>Noches</dt><dd>{{ current.booking.nights }}</dd></div>
+            <div><dt>Personas</dt><dd>{{ current.booking.guests }}</dd></div>
+            <div><dt>Identificación</dt><dd>{{ current.booking.idNumber || '—' }}</dd></div>
+            <div><dt>Teléfono</dt><dd>{{ current.booking.phone || '—' }}</dd></div>
+            <div>
+              <dt>Tarifa</dt>
+              <dd>
+                @if (current.booking.bookingType === 'full') {
+                  Puerta cerrada
+                } @else if (current.booking.rateType === 'corporate') {
+                  Corporativa
+                } @else {
+                  General
+                }
+              </dd>
+            </div>
+            @if (current.booking.discountPercent > 0) {
+              <div><dt>Descuento</dt><dd>{{ current.booking.discountPercent }} %</dd></div>
+            }
+          </dl>
+
+          <p class="detail__total">{{ money(current.booking.total) }}</p>
+
+          @if (confirmingDelete()) {
+            <div class="danger">
+              <p class="danger__text">
+                Se va a eliminar la reserva de {{ current.booking.guestName }} y las fechas
+                quedarán libres. Esta acción no se puede deshacer.
+              </p>
+              <div class="danger__actions">
+                <button matButton="filled" class="danger__confirm" [disabled]="working()"
+                        (click)="confirmDelete()">Sí, eliminar</button>
+                <button matButton (click)="confirmingDelete.set(false)">No</button>
+              </div>
+            </div>
+          } @else {
+            <div class="detail__actions">
+              <button matButton="filled" (click)="startEdit()">Editar</button>
+              <button matButton="outlined" class="detail__delete" (click)="askDelete()">
+                Eliminar
+              </button>
+            </div>
+          }
+        } @else {
+          <form class="edit" [formGroup]="editForm">
+            <div class="edit__row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Entrada</mat-label>
+                <input matInput [matDatepicker]="editIn" formControlName="checkIn" />
+                <mat-datepicker-toggle matIconSuffix [for]="editIn" />
+                <mat-datepicker #editIn />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Salida</mat-label>
+                <input matInput [matDatepicker]="editOut" formControlName="checkOut" />
+                <mat-datepicker-toggle matIconSuffix [for]="editOut" />
+                <mat-datepicker #editOut />
+              </mat-form-field>
+            </div>
+
+            <div class="edit__row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Personas</mat-label>
+                <mat-select formControlName="guests">
+                  @for (option of guestOptions(); track option) {
+                    <mat-option [value]="option">{{ option }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              @if (current.booking.bookingType === 'cabin') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Tarifa</mat-label>
+                  <mat-select formControlName="rateType">
+                    <mat-option value="general">General</mat-option>
+                    <mat-option value="corporate">Corporativa</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              }
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Descuento</mat-label>
+                <mat-select formControlName="discountPercent">
+                  @for (percent of discounts; track percent) {
+                    <mat-option [value]="percent">
+                      {{ percent === 0 ? 'Ninguno' : percent + ' %' }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="detail__actions">
+              <button matButton="filled" [disabled]="working()" (click)="saveEdit()">
+                Guardar cambios
+              </button>
+              <button matButton (click)="cancelEdit()">Cancelar</button>
+            </div>
+          </form>
+        }
+
+        @if (errorMessage()) {
+          <p class="detail__error">{{ errorMessage() }}</p>
+        }
+      </section>
+    }
+  }
+</main>

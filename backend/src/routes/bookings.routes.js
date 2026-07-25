@@ -3,6 +3,7 @@ const { Booking } = require('../models');
 const {
   createBooking,
   cancelBooking,
+  updateBooking,
   getBookingDetail,
   quote
 } = require('../services/bookingService');
@@ -48,6 +49,14 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     res.status(201).json(await createBooking(req.body));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/:id', async (req, res, next) => {
+  try {
+    res.json(await updateBooking(req.params.id, req.body));
   } catch (error) {
     next(error);
   }

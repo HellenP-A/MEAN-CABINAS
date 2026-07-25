@@ -140,7 +140,7 @@ async function cancelBooking(bookingId) {
 async function getBookingDetail(bookingId) {
   const booking = await Booking.findById(bookingId)
     .populate('cabinId', 'code name capacity')
-    .populate('guestId', 'idNumber fullName phone');
+    .populate('guestId', 'idNumber idType fullName phone');
 
   if (!booking) throw fail('La reserva no existe', 404);
 
@@ -204,7 +204,7 @@ async function occupancyByDate(value) {
   const bookingIds = [...new Set(nights.map((n) => String(n.bookingId)))];
 
   const bookings = await Booking.find({ _id: { $in: bookingIds } })
-    .populate('guestId', 'idNumber fullName phone')
+    .populate('guestId', 'idNumber idType fullName phone')
     .lean();
   const bookingById = new Map(bookings.map((b) => [String(b._id), b]));
 
@@ -216,12 +216,169 @@ async function occupancyByDate(value) {
   });
 }
 
+/**
+ * Rejilla de ocupacion: cada cabina con el estado de cada dia del rango.
+ *
+ * Devuelve las reservas aparte y en los dias solo su identificador, para no
+ * repetir los mismos datos en cada celda. La interfaz arma la barra uniendo
+ * los dias consecutivos que comparten identificador.
+ */
+async function calendarRange(fromValue, dayCount = 14) {
+  const from = toUtcDate(fromValue);
+  const days = Math.min(Math.max(Number(dayCount) || 14, 1), 62);
+
+  const to = new Date(from);
+  to.setUTCDate(to.getUTCDate() + days);
+
+  const dates = listNights(from, to).map((date) => date.toISOString().slice(0, 10));
+
+  const nights = await OccupiedNight.find({ date: { $gte: from, $lt: to } }).lean();
+
+  // Clave cabina|fecha para resolver cada celda en una sola pasada
+  const byCell = new Map();
+  nights.forEach((night) => {
+    byCell.set(`${night.cabinId}|${night.date.toISOString().slice(0, 10)}`, String(night.bookingId));
+  });
+
+  const bookingIds = [...new Set(nights.map((night) => String(night.bookingId)))];
+  const bookings = await Booking.find({ _id: { $in: bookingIds } })
+    .populate('guestId', 'idNumber idType fullName phone')
+    .lean();
+
+  const bookingById = {};
+  bookings.forEach((booking) => {
+    bookingById[String(booking._id)] = {
+      _id: String(booking._id),
+      bookingType: booking.bookingType,
+      guestName: booking.guestId?.fullName ?? 'Sin responsable',
+      idNumber: booking.guestId?.idNumber ?? '',
+      idType: booking.guestId?.idType ?? 'national',
+      idType: booking.guestId?.idType ?? 'national',
+      phone: booking.guestId?.phone ?? '',
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      nights: booking.nights,
+      guests: booking.guests,
+      rateType: booking.rateType,
+      discountPercent: booking.discountPercent,
+      total: booking.total,
+      status: booking.status
+    };
+  });
+
+  const cabins = await Cabin.find({ active: true }).sort({ number: 1 }).lean();
+
+  return {
+    from: dates[0],
+    to: dates[dates.length - 1],
+    dates,
+    bookings: bookingById,
+    cabins: cabins.map((cabin) => ({
+      _id: String(cabin._id),
+      number: cabin.number,
+      name: cabin.name,
+      capacity: cabin.capacity,
+      days: dates.map((date) => byCell.get(`${cabin._id}|${date}`) ?? null)
+    }))
+  };
+}
+
+/**
+ * Edita una reserva existente.
+ *
+ * Primero libera sus propias noches, para que no choque consigo misma, y
+ * despues intenta tomar las nuevas. Si alguna esta ocupada por otra reserva,
+ * se restauran las anteriores y la reserva queda como estaba: nunca se pierde
+ * el lugar por un intento fallido.
+ */
+async function updateBooking(bookingId, payload) {
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw fail('La reserva no existe', 404);
+  if (booking.status === 'cancelled') throw fail('La reserva esta cancelada', 400);
+
+  // Lo que no venga en el payload conserva el valor actual
+  const merged = {
+    bookingType: payload.bookingType ?? booking.bookingType,
+    cabinId: payload.cabinId ?? booking.cabinId,
+    checkIn: payload.checkIn ?? booking.checkIn,
+    checkOut: payload.checkOut ?? booking.checkOut,
+    guests: payload.guests ?? booking.guests,
+    rateType: payload.rateType ?? booking.rateType,
+    discountPercent: payload.discountPercent ?? booking.discountPercent,
+    notes: payload.notes ?? booking.notes
+  };
+
+  const { bookingType, cabins, cabin, guestCount } = await resolveTarget(merged);
+  const nights = resolveNights(merged.checkIn, merged.checkOut);
+
+  const price = await calculatePrice({
+    bookingType,
+    cabin,
+    nights,
+    guests: guestCount,
+    rateType: merged.rateType,
+    discountPercent: merged.discountPercent
+  });
+
+  const previous = await OccupiedNight.find({ bookingId: booking._id }).lean();
+  await OccupiedNight.deleteMany({ bookingId: booking._id });
+
+  const dates = listNights(merged.checkIn, merged.checkOut);
+  const nightDocs = cabins.flatMap((item) =>
+    dates.map((date) => ({ cabinId: item._id, date, bookingId: booking._id }))
+  );
+
+  try {
+    await OccupiedNight.insertMany(nightDocs, { ordered: true });
+  } catch (error) {
+    await OccupiedNight.deleteMany({ bookingId: booking._id });
+
+    // Devuelve la reserva a las noches que tenia antes del intento
+    if (previous.length > 0) {
+      await OccupiedNight.insertMany(
+        previous.map((night) => ({
+          cabinId: night.cabinId,
+          date: night.date,
+          bookingId: night.bookingId
+        })),
+        { ordered: false }
+      );
+    }
+
+    if (error.code === DUPLICATE_KEY || error?.writeErrors?.[0]?.err?.code === DUPLICATE_KEY) {
+      const message =
+        bookingType === 'full'
+          ? 'Hay cabinas ocupadas en esas fechas, no se puede alquilar completo'
+          : 'La cabina ya esta ocupada en alguna de esas fechas';
+      throw fail(message, 409);
+    }
+    throw error;
+  }
+
+  booking.set({
+    bookingType,
+    cabinId: bookingType === 'cabin' ? cabin._id : undefined,
+    checkIn: toUtcDate(merged.checkIn),
+    checkOut: toUtcDate(merged.checkOut),
+    nights,
+    guests: guestCount,
+    rateType: merged.rateType,
+    notes: merged.notes,
+    ...price
+  });
+
+  await booking.save();
+  return booking;
+}
+
 module.exports = {
   createBooking,
   cancelBooking,
+  updateBooking,
   getBookingDetail,
   findAvailableCabins,
   occupancyByDate,
+  calendarRange,
   listCabinsWithAvailability,
   propertyAvailability,
   quote

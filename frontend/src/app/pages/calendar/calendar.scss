@@ -1,0 +1,430 @@
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+/* --- Encabezado --- */
+
+.page__header {
+  margin-bottom: 24px;
+}
+
+.page__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+.page__date {
+  margin: 0;
+  font-family: var(--mat-sys-brand-family);
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--river-mid);
+}
+
+.page__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.page__title {
+  margin: 20px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+/* --- Rejilla --- */
+
+.board {
+  border: 1px solid var(--surface-line);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow-x: auto;
+  padding: 10px 10px 14px;
+}
+
+.board__head,
+.board__row {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 8px;
+  min-width: 820px;
+}
+
+.board__row {
+  padding: 3px 0;
+  border-radius: 10px;
+}
+
+.board__row--active {
+  background: rgba(29, 111, 107, 0.07);
+}
+
+.board__corner {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+}
+
+// Sin separacion entre columnas: la cabecera tiene una por dia y la fila dos,
+// y solo coinciden en ancho si ninguna de las dos suma espacios intermedios
+.board__days,
+.board__track {
+  display: grid;
+  gap: 0;
+}
+
+.day {
+  padding: 4px 2px 8px;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.day__dow {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  opacity: 0.5;
+}
+
+.day__num {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.day--weekend .day__num {
+  color: var(--river-mid);
+}
+
+.day--today .day__dow {
+  opacity: 1;
+  color: var(--today);
+  font-weight: 700;
+}
+
+.day--today .day__num {
+  display: inline-block;
+  min-width: 30px;
+  padding: 2px 0;
+  border-radius: 999px;
+  background: var(--today);
+  color: #ffffff;
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.day__tag {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--today);
+}
+
+.board__cabin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 6px;
+}
+
+.board__number {
+  font-family: var(--mat-sys-brand-family);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.board__capacity {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+// El margen lateral hace de separacion entre casillas, ya que la rejilla
+// no lleva gap propio
+.free {
+  grid-row: 1;
+  z-index: 1;
+  height: 40px;
+  margin: 0 2px;
+  border-radius: 7px;
+  background: rgba(127, 179, 168, 0.16);
+}
+
+.free--today {
+  background: rgba(79, 91, 213, 0.16);
+}
+
+// La barra va por encima: en el dia de rotacion tapa la mitad que ocupa
+// y deja ver libre la otra mitad
+.bar {
+  grid-row: 1;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 40px;
+  margin: 0 1px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 7px;
+  background: var(--river-mid);
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: filter 0.15s ease;
+}
+
+.bar:hover {
+  filter: brightness(1.12);
+}
+
+.bar--full {
+  background: var(--sun);
+  color: #1a1200;
+}
+
+.bar--selected {
+  outline: 3px solid var(--today);
+  outline-offset: 2px;
+}
+
+.bar__name {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar__span {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.today-band {
+  grid-row: 1;
+  position: relative;
+  z-index: 4;
+  align-self: stretch;
+  margin: 0 2px;
+  pointer-events: none;
+  border-left: 2px solid var(--today);
+  border-right: 2px solid var(--today);
+  border-radius: 7px;
+}
+
+/* --- Pie y detalle --- */
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  flex-wrap: wrap;
+}
+
+.legend__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.legend__dot--busy {
+  background: var(--river-mid);
+}
+
+.legend__dot--full {
+  background: var(--sun);
+  margin-left: 10px;
+}
+
+.legend__dot--today {
+  background: var(--today);
+  margin-left: 10px;
+}
+
+.legend__hint {
+  margin-left: auto;
+}
+
+.detail {
+  margin-top: 22px;
+  padding: 20px;
+  border: 1px solid var(--surface-line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.detail__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail__cabin {
+  margin: 0 0 2px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--river-mid);
+}
+
+.detail__name {
+  margin: 0;
+  font-family: var(--mat-sys-brand-family);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.detail__dates {
+  margin: 8px 0 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--river-mid);
+}
+
+.detail__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.detail__grid dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
+.detail__grid dd {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.detail__total {
+  margin: 18px 0 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  opacity: 0.6;
+}
+
+/* --- Editar y eliminar --- */
+
+.detail__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.detail__delete {
+  color: #b3261e;
+}
+
+.edit {
+  margin-top: 18px;
+}
+
+.edit__row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+
+  mat-form-field {
+    flex: 1;
+    min-width: 160px;
+  }
+}
+
+// La confirmacion pide un segundo toque: eliminar no se deshace
+.danger {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border: 1px solid rgba(179, 38, 30, 0.4);
+  border-radius: 12px;
+  background: rgba(179, 38, 30, 0.06);
+}
+
+.danger__text {
+  margin: 0 0 14px;
+  font-size: 0.9375rem;
+}
+
+.danger__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.danger__confirm {
+  background: #b3261e;
+  color: #ffffff;
+}
+
+.detail__error {
+  margin: 14px 0 0;
+  color: #b3261e;
+  font-weight: 500;
+}
+
+// Sin esto, un valor largo se sale de su columna y pisa la siguiente
+.detail__grid > div {
+  min-width: 0;
+}
+
+.detail__grid dd {
+  overflow-wrap: anywhere;
+}
+
+// Sin esto, un valor largo se sale de su columna y pisa la siguiente
+.detail__grid > div {
+  min-width: 0;
+}
+
+.detail__grid dd {
+  overflow-wrap: anywhere;
+}

@@ -18,6 +18,7 @@ export interface Cabin {
 
 export interface Guest {
   _id: string;
+  idType?: 'national' | 'foreign';
   idNumber: string;
   fullName: string;
   phone?: string;
@@ -63,6 +64,39 @@ export interface CabinOccupancy extends Cabin {
   } | null;
 }
 
+export interface CalendarBooking {
+  _id: string;
+  bookingType: 'cabin' | 'full';
+  guestName: string;
+  idNumber: string;
+  idType: 'national' | 'foreign';
+  phone: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+  rateType: string;
+  discountPercent: number;
+  total: number;
+  status: string;
+}
+
+export interface CalendarCabin {
+  _id: string;
+  number: number;
+  name: string;
+  capacity: number;
+  days: (string | null)[];
+}
+
+export interface CalendarData {
+  from: string;
+  to: string;
+  dates: string[];
+  bookings: Record<string, CalendarBooking>;
+  cabins: CalendarCabin[];
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -102,6 +136,22 @@ export class Api {
   /** Las 15 cabinas con quien las ocupa en la fecha indicada. */
   occupancy(date: string): Observable<CabinOccupancy[]> {
     return this.http.get<CabinOccupancy[]>(`${API_URL}/cabins/occupancy`, { params: { date } });
+  }
+
+  /** Rejilla de ocupacion: cabinas por dias. */
+  calendar(from: string, days: number): Observable<CalendarData> {
+    return this.http.get<CalendarData>(`${API_URL}/cabins/calendar`, {
+      params: { from, days: String(days) }
+    });
+  }
+
+  updateBooking(id: string, payload: unknown): Observable<unknown> {
+    return this.http.put(`${API_URL}/bookings/${id}`, payload);
+  }
+
+  /** Cancela la reserva y libera sus noches. */
+  cancelBooking(id: string): Observable<unknown> {
+    return this.http.delete(`${API_URL}/bookings/${id}`);
   }
 
   searchGuests(search: string): Observable<Guest[]> {

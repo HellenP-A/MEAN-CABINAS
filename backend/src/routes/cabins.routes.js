@@ -4,10 +4,21 @@ const {
   findAvailableCabins,
   listCabinsWithAvailability,
   occupancyByDate,
+  calendarRange,
   propertyAvailability
 } = require('../services/bookingService');
 
 const router = express.Router();
+
+// Rejilla de ocupacion: /api/cabins/calendar?from=AAAA-MM-DD&days=14
+router.get('/calendar', async (req, res, next) => {
+  try {
+    const { from, days } = req.query;
+    res.json(await calendarRange(from, days));
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Quien esta en cada cabina en una fecha: /api/cabins/occupancy?date=AAAA-MM-DD
 router.get('/occupancy', async (req, res, next) => {

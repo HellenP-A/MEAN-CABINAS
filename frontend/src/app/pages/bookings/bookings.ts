@@ -80,6 +80,8 @@ export class Bookings {
   private knownGuestId = signal<string | null>(null);
   // Ultima consulta hecha, para no repetirla en cada tecla
   private lastQuery = '';
+  // Tipo de identificacion anterior, para detectar el cambio
+  private lastIdType: 'national' | 'foreign' = 'national';
 
   readonly discounts = [0, 5, 10, 15, 20];
 
@@ -90,6 +92,8 @@ export class Bookings {
     checkOut: [addDays(this.today, 1) as Date | null, Validators.required],
     cabinId: [''],
     guests: [1, [Validators.required, Validators.min(1)]],
+    // El tipo explicito evita que se infiera como string generico
+    idType: ['national' as 'national' | 'foreign'],
     idNumber: ['', Validators.required],
     fullName: ['', Validators.required],
     phone: ['', Validators.pattern(/^\d{4}-\d{4}$/)],
@@ -101,6 +105,7 @@ export class Bookings {
     this.form.valueChanges
       .pipe(debounceTime(300), takeUntilDestroyed())
       .subscribe(() => {
+        this.syncIdType();
         this.syncAvailability();
         this.syncSelectedCabin();
         this.refreshQuote();
@@ -255,6 +260,66 @@ export class Bookings {
   }
 
   /**
+   * Identificacion costarricense: 1-1234-0567.
+   * Para documentos extranjeros no se toca lo escrito, porque los formatos
+   * de pasaporte y DIMEX no son comparables entre paises.
+   */
+  formatId(): void {
+    if (this.form.controls.idType.value !== 'national') return;
+
+    const control = this.form.controls.idNumber;
+    const digits = control.value.replace(/\D/g, '').slice(0, 9);
+
+    let formatted = digits;
+    if (digits.length > 5) {
+      formatted = `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`;
+    } else if (digits.length > 1) {
+      formatted = `${digits.slice(0, 1)}-${digits.slice(1)}`;
+    }
+
+    if (formatted !== control.value) {
+      control.setValue(formatted, { emitEvent: false });
+    }
+  }
+
+  /**
+   * Al cambiar entre nacional y extranjero, rehace lo ya escrito:
+   * hacia nacional aplica el formato 1-1234-0567, y hacia extranjero
+   * quita los guiones para poder escribir un pasaporte con libertad.
+   */
+  private syncIdType(): void {
+    const type = this.form.controls.idType.value;
+    if (type === this.lastIdType) return;
+    this.lastIdType = type;
+
+    const control = this.form.controls.idNumber;
+
+    if (type === 'national') {
+      this.formatId();
+    } else {
+      const clean = control.value.replace(/-/g, '');
+      if (clean !== control.value) {
+        control.setValue(clean, { emitEvent: false });
+      }
+    }
+
+    this.syncIdValidators();
+  }
+
+  /** Exige el formato nacional solo cuando corresponde. */
+  syncIdValidators(): void {
+    const control = this.form.controls.idNumber;
+    const rules = [Validators.required];
+
+    if (this.form.controls.idType.value === 'national') {
+      rules.push(Validators.pattern(/^\d-\d{4}-\d{4}$/));
+    }
+
+    control.setValidators(rules);
+    control.updateValueAndValidity({ emitEvent: false });
+  }
+
+  /**
    * Da forma al telefono mientras se escribe: 8765-0987.
    * Descarta lo que no sea numero y corta en ocho digitos,
    * asi no hay que acordarse de poner el guion.
@@ -278,7 +343,11 @@ export class Bookings {
       const match = list.find((guest) => guest.idNumber === idNumber);
 
       if (match) {
-        this.form.patchValue({ fullName: match.fullName, phone: match.phone ?? '' });
+        this.form.patchValue({
+          fullName: match.fullName,
+          phone: match.phone ?? '',
+          idType: match.idType ?? 'national'
+        });
         this.knownGuestId.set(match._id);
       } else {
         this.knownGuestId.set(null);
@@ -301,6 +370,7 @@ export class Bookings {
       ? of(this.knownGuestId()!)
       : this.api
           .createGuest({
+            idType: value.idType,
             idNumber: value.idNumber,
             fullName: value.fullName,
             phone: value.phone
@@ -330,6 +400,7 @@ export class Bookings {
           // Vuelve a las fechas de hoy, listo para el siguiente registro
           this.form.reset({
             bookingType: 'cabin',
+            idType: 'national',
             checkIn: this.today,
             checkOut: addDays(this.today, 1),
             cabinId: '',

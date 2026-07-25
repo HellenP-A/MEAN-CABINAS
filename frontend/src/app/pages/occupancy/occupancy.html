@@ -6,6 +6,7 @@
     </div>
 
     <div class="page__actions">
+      <a matButton routerLink="/calendario">Calendario</a>
       <a matButton routerLink="/">Inicio</a>
       <app-theme-toggle />
     </div>
@@ -47,7 +48,7 @@
                 }
               </p>
 
-              <p class="cabin__id">Cédula {{ booking.guestId?.idNumber ?? '—' }}</p>
+              <p class="cabin__id">Identificación {{ booking.guestId?.idNumber ?? '—' }}</p>
               <p class="cabin__total">{{ money(booking.total) }}</p>
             } @else {
               <p class="cabin__free">Libre</p>

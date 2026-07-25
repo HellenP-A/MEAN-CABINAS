@@ -75,3 +75,12 @@ body {
   color: var(--page-fg);
   transition: background-color 0.25s ease, color 0.25s ease;
 }
+
+/* El dia de hoy lleva su propio color: el ambar ya significa puerta cerrada */
+html {
+  --today: #4f5bd5;
+}
+
+html.dark {
+  --today: #97a3ff;
+}

@@ -187,3 +187,58 @@ mat-form-field {
 .block mat-form-field + mat-form-field {
   margin-top: 8px;
 }
+
+/* --- Encabezado --- */
+
+.page__header {
+  display: block;
+  margin-bottom: 32px;
+}
+
+// La fecha y los enlaces comparten renglon y se separan a los extremos
+.page__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+.page__date {
+  margin: 0;
+  font-family: var(--mat-sys-brand-family);
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--river-mid);
+}
+
+.page__date::first-letter {
+  text-transform: uppercase;
+}
+
+.page__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+// El nombre de la pantalla baja y queda como subtitulo, sin competir con la fecha
+.page__title {
+  margin: 20px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  opacity: 1;
+}
+
+.block__spaced {
+  margin-top: 16px;
+}
+
+.block__spaced {
+  margin-top: 16px;
+}

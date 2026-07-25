@@ -1,15 +1,17 @@
 <main class="page">
   <header class="page__header">
-    <div>
-      <p class="page__today">{{ todayLabel }}</p>
-      <h1 class="page__title">Nueva reserva</h1>
+    <div class="page__bar">
+      <p class="page__date">{{ todayLabel }}</p>
+
+      <nav class="page__nav">
+        <a matButton routerLink="/reservadas">Reservadas</a>
+        <a matButton routerLink="/calendario">Calendario</a>
+        <a matButton routerLink="/">Inicio</a>
+        <app-theme-toggle />
+      </nav>
     </div>
 
-    <div class="page__actions">
-      <a matButton routerLink="/reservadas">Reservadas</a>
-      <a matButton routerLink="/">Inicio</a>
-      <app-theme-toggle />
-    </div>
+    <h1 class="page__title">Nueva reserva</h1>
   </header>
 
   <form class="form" [formGroup]="form">
@@ -122,11 +124,24 @@
     }
 
     <section class="block">
-      <h2 class="block__label">Responsable</h2>
+      <h2 class="block__label">Huésped responsable</h2>
 
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Cédula</mat-label>
-        <input matInput formControlName="idNumber" (blur)="findGuest()" />
+      <mat-button-toggle-group formControlName="idType" class="toggles">
+        <mat-button-toggle value="national">Costarricense</mat-button-toggle>
+        <mat-button-toggle value="foreign">Extranjero</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="block__spaced">
+        <mat-label>Identificación</mat-label>
+        <input
+          matInput
+          formControlName="idNumber"
+          [placeholder]="form.controls.idType.value === 'national' ? '1-1234-0567' : 'Pasaporte o DIMEX'"
+          (input)="formatId()"
+          (blur)="findGuest()" />
+        @if (form.controls.idNumber.hasError('pattern')) {
+          <mat-error>El formato debe ser 1-1234-0567</mat-error>
+        }
       </mat-form-field>
 
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
