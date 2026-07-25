@@ -136,7 +136,16 @@
 
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Teléfono</mat-label>
-        <input matInput formControlName="phone" />
+        <input
+          matInput
+          inputmode="tel"
+          maxlength="9"
+          placeholder="9999-9999"
+          formControlName="phone"
+          (input)="formatPhone()" />
+        @if (form.controls.phone.hasError('pattern')) {
+          <mat-error>Debe tener ocho dígitos</mat-error>
+        }
       </mat-form-field>
     </section>
 

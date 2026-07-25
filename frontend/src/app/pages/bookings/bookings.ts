@@ -92,7 +92,7 @@ export class Bookings {
     guests: [1, [Validators.required, Validators.min(1)]],
     idNumber: ['', Validators.required],
     fullName: ['', Validators.required],
-    phone: [''],
+    phone: ['', Validators.pattern(/^\d{4}-\d{4}$/)],
     rateType: ['general'],
     discountPercent: [0]
   });
@@ -252,6 +252,21 @@ export class Bookings {
           this.errorMessage.set(error.error?.message ?? 'No fue posible calcular el monto');
         }
       });
+  }
+
+  /**
+   * Da forma al telefono mientras se escribe: 8765-0987.
+   * Descarta lo que no sea numero y corta en ocho digitos,
+   * asi no hay que acordarse de poner el guion.
+   */
+  formatPhone(): void {
+    const control = this.form.controls.phone;
+    const digits = control.value.replace(/\D/g, '').slice(0, 8);
+    const formatted = digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+
+    if (formatted !== control.value) {
+      control.setValue(formatted, { emitEvent: false });
+    }
   }
 
   /** Al salir del campo de cedula, completa los datos si ya visito antes. */
