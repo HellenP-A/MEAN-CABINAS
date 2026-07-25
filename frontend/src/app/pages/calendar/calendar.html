@@ -127,6 +127,8 @@
 
           <p class="detail__total">{{ money(current.booking.total) }}</p>
 
+          <app-booking-payments [bookingId]="current.booking._id" />
+
           @if (confirmingDelete()) {
             <div class="danger">
               <p class="danger__text">

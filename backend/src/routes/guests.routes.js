@@ -1,16 +1,28 @@
 const express = require('express');
 const { Guest } = require('../models');
+const { frequentGuests } = require('../services/guestService');
 
 const router = express.Router();
 
 // Busqueda por cedula o nombre: /api/guests?search=1-1234
+// Los que mas se repiten: /api/guests/frequent
+router.get('/frequent', async (req, res, next) => {
+  try {
+    res.json(await frequentGuests(req.query.limit));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/', async (req, res, next) => {
   try {
     const { search } = req.query;
     const filter = search
       ? { $or: [{ idNumber: new RegExp(search, 'i') }, { fullName: new RegExp(search, 'i') }] }
       : {};
-    res.json(await Guest.find(filter).sort({ fullName: 1 }).limit(50));
+    res.json(
+      await Guest.find(filter).populate('companyId', 'name rateType discountPercent').sort({ fullName: 1 }).limit(50)
+    );
   } catch (error) {
     next(error);
   }

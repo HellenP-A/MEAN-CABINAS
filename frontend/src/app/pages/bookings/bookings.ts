@@ -13,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { Api, Cabin, PropertyAvailability, Quote } from '../../core/api';
+import { Api, Cabin, Company, FrequentGuest, PropertyAvailability, Quote } from '../../core/api';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 /** Convierte la fecha del calendario a AAAA-MM-DD sin desfase de zona horaria. */
@@ -72,6 +72,8 @@ export class Bookings {
   errorMessage = signal('');
   saving = signal(false);
   loading = signal(false);
+  frequent = signal<FrequentGuest[]>([]);
+  companies = signal<Company[]>([]);
 
   // Cuantas quedan libres, para avisar cuando no hay ninguna
   freeCount = computed(() => this.cabins().filter((cabin) => cabin.available).length);
@@ -93,6 +95,7 @@ export class Bookings {
     cabinId: [''],
     guests: [1, [Validators.required, Validators.min(1)]],
     // El tipo explicito evita que se infiera como string generico
+    companyId: [''],
     idType: ['national' as 'national' | 'foreign'],
     idNumber: ['', Validators.required],
     fullName: ['', Validators.required],
@@ -110,6 +113,9 @@ export class Bookings {
         this.syncSelectedCabin();
         this.refreshQuote();
       });
+
+    this.api.frequentGuests().subscribe((list) => this.frequent.set(list.slice(0, 8)));
+    this.api.companies().subscribe((list) => this.companies.set(list));
 
     // Con fechas por defecto, la disponibilidad se consulta de una vez
     this.syncAvailability();
@@ -334,6 +340,38 @@ export class Bookings {
     }
   }
 
+  /**
+   * Carga de una vez los datos de un huesped frecuente.
+   * Si viene de una empresa, tambien aplica la tarifa y el descuento pactados.
+   */
+  pickGuest(guest: FrequentGuest): void {
+    const company = guest.companyId ?? null;
+
+    this.form.patchValue({
+      idType: guest.idType ?? 'national',
+      idNumber: guest.idNumber,
+      fullName: guest.fullName,
+      phone: guest.phone ?? '',
+      companyId: company?._id ?? '',
+      rateType: company?.rateType ?? this.form.controls.rateType.value,
+      discountPercent: company?.discountPercent ?? this.form.controls.discountPercent.value
+    });
+
+    this.knownGuestId.set(guest._id);
+  }
+
+  /** Al elegir empresa a mano, se traen sus condiciones. */
+  applyCompanyDefaults(): void {
+    const id = this.form.controls.companyId.value;
+    const company = this.companies().find((item) => item._id === id);
+    if (!company) return;
+
+    this.form.patchValue({
+      rateType: company.rateType,
+      discountPercent: company.discountPercent
+    });
+  }
+
   /** Al salir del campo de cedula, completa los datos si ya visito antes. */
   findGuest(): void {
     const idNumber = this.form.controls.idNumber.value.trim();
@@ -371,6 +409,7 @@ export class Bookings {
       : this.api
           .createGuest({
             idType: value.idType,
+            companyId: value.companyId || null,
             idNumber: value.idNumber,
             fullName: value.fullName,
             phone: value.phone
@@ -425,6 +464,6 @@ export class Bookings {
 
   /** Formato de colones sin decimales. */
   money(value: number): string {
-    return `₡${new Intl.NumberFormat('es-CR', { maximumFractionDigits: 0 }).format(value)}`;
+    return `₡${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)}`;
   }
 }

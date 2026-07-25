@@ -9,6 +9,8 @@ const guestSchema = new mongoose.Schema(
     idNumber: { type: String, required: true, unique: true, trim: true },
     fullName: { type: String, required: true, trim: true },
     phone: { type: String, trim: true },
+    // Empresa que lo envia, si corresponde. Un huesped particular no lleva ninguna
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
     notes: { type: String, trim: true }
   },
   { timestamps: true }

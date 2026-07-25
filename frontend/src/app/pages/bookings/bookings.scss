@@ -242,3 +242,46 @@ mat-form-field {
 .block__spaced {
   margin-top: 16px;
 }
+
+/* --- Huespedes frecuentes --- */
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+// Toque rapido: evita volver a escribir los datos de quien ya vino antes
+.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 14px;
+  border: 1px solid var(--surface-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: var(--river-mid);
+  background: rgba(29, 111, 107, 0.08);
+}
+
+.chip__name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.chip__company {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--river-mid);
+}

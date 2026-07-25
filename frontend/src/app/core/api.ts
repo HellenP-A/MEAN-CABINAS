@@ -16,12 +16,25 @@ export interface Cabin {
   available?: boolean;
 }
 
+export interface Company {
+  _id: string;
+  name: string;
+  rateType: 'general' | 'corporate';
+  discountPercent: number;
+  phone?: string;
+}
+
 export interface Guest {
   _id: string;
   idType?: 'national' | 'foreign';
   idNumber: string;
   fullName: string;
   phone?: string;
+}
+
+export interface FrequentGuest extends Guest {
+  visits: number;
+  lastCheckIn: string;
 }
 
 export interface PropertyAvailability {
@@ -97,6 +110,22 @@ export interface CalendarData {
   cabins: CalendarCabin[];
 }
 
+export interface Payment {
+  _id: string;
+  amount: number;
+  method: string;
+  paidAt: string;
+  receivedBy?: string;
+  notes?: string;
+}
+
+export interface BookingDetail {
+  booking: { _id: string; total: number; nights: number; guests: number };
+  payments: Payment[];
+  paid: number;
+  balance: number;
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -152,6 +181,31 @@ export class Api {
   /** Cancela la reserva y libera sus noches. */
   cancelBooking(id: string): Observable<unknown> {
     return this.http.delete(`${API_URL}/bookings/${id}`);
+  }
+
+  /** Reserva con sus abonos y el saldo pendiente. */
+  bookingDetail(id: string): Observable<BookingDetail> {
+    return this.http.get<BookingDetail>(`${API_URL}/bookings/${id}`);
+  }
+
+  addPayment(payload: unknown): Observable<{ payment: Payment; paid: number; balance: number }> {
+    return this.http.post<{ payment: Payment; paid: number; balance: number }>(
+      `${API_URL}/payments`,
+      payload
+    );
+  }
+
+  deletePayment(id: string): Observable<unknown> {
+    return this.http.delete(`${API_URL}/payments/${id}`);
+  }
+
+  /** Huespedes que mas se repiten, para el acceso rapido. */
+  frequentGuests(): Observable<FrequentGuest[]> {
+    return this.http.get<FrequentGuest[]>(`${API_URL}/guests/frequent`);
+  }
+
+  companies(): Observable<Company[]> {
+    return this.http.get<Company[]>(`${API_URL}/companies`);
   }
 
   searchGuests(search: string): Observable<Guest[]> {

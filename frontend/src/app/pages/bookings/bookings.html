@@ -126,6 +126,19 @@
     <section class="block">
       <h2 class="block__label">Huésped responsable</h2>
 
+      @if (frequent().length > 0) {
+        <div class="chips">
+          @for (guest of frequent(); track guest._id) {
+            <button type="button" class="chip" (click)="pickGuest(guest)">
+              <span class="chip__name">{{ guest.fullName }}</span>
+              @if (guest.companyId) {
+                <span class="chip__company">{{ guest.companyId.name }}</span>
+              }
+            </button>
+          }
+        </div>
+      }
+
       <mat-button-toggle-group formControlName="idType" class="toggles">
         <mat-button-toggle value="national">Costarricense</mat-button-toggle>
         <mat-button-toggle value="foreign">Extranjero</mat-button-toggle>
@@ -161,6 +174,16 @@
         @if (form.controls.phone.hasError('pattern')) {
           <mat-error>Debe tener ocho dígitos</mat-error>
         }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Empresa</mat-label>
+        <mat-select formControlName="companyId" (selectionChange)="applyCompanyDefaults()">
+          <mat-option value="">Ninguna</mat-option>
+          @for (company of companies(); track company._id) {
+            <mat-option [value]="company._id">{{ company.name }}</mat-option>
+          }
+        </mat-select>
       </mat-form-field>
     </section>
 

@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api, CalendarBooking, CalendarData } from '../../core/api';
+import { BookingPayments } from '../../core/booking-payments';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 /** Tramo en medias casillas: cada dia son dos columnas. */
@@ -64,7 +65,8 @@ function fromIso(iso: string): Date {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    ThemeToggle
+    ThemeToggle,
+    BookingPayments
   ],
   providers: [provideNativeDateAdapter()],
   templateUrl: './calendar.html',
@@ -352,6 +354,6 @@ export class Calendar {
   }
 
   money(value: number): string {
-    return `₡${new Intl.NumberFormat('es-CR', { maximumFractionDigits: 0 }).format(value)}`;
+    return `₡${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)}`;
   }
 }

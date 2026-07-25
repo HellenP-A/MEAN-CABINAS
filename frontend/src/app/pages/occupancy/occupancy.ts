@@ -59,6 +59,6 @@ export class Occupancy {
   }
 
   money(value: number): string {
-    return `₡${new Intl.NumberFormat('es-CR', { maximumFractionDigits: 0 }).format(value)}`;
+    return `₡${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)}`;
   }
 }
