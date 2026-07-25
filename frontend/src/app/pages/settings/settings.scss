@@ -1,0 +1,155 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.page__header {
+  margin-bottom: 24px;
+}
+
+.page__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+.page__date {
+  margin: 0;
+  font-family: var(--mat-sys-brand-family);
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--river-mid);
+}
+
+.page__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.page__title {
+  margin: 20px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.card {
+  margin-bottom: 22px;
+  padding: 20px;
+  border: 1px solid var(--surface-line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.card__title {
+  margin: 0 0 4px;
+  font-family: var(--mat-sys-brand-family);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.card__note {
+  margin: 0 0 16px;
+  font-size: 0.9375rem;
+  opacity: 0.65;
+}
+
+.field {
+  max-width: 260px;
+  width: 100%;
+}
+
+.toggles {
+  margin-bottom: 16px;
+
+  .mat-button-toggle-label-content {
+    line-height: 48px;
+  }
+}
+
+.row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.cabins {
+  display: grid;
+  gap: 12px;
+}
+
+.cabin {
+  padding: 14px 16px;
+  border: 1px solid var(--surface-line);
+  border-radius: 12px;
+}
+
+// La cabina fuera de servicio se atenua: no aparece al reservar
+.cabin--off {
+  opacity: 0.55;
+}
+
+.cabin__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cabin__number {
+  font-family: var(--mat-sys-brand-family);
+  font-size: 1.25rem;
+  font-weight: 700;
+  min-width: 28px;
+}
+
+.cabin__name {
+  font-weight: 600;
+}
+
+.cabin__toggle {
+  margin-left: auto;
+  font-size: 0.8125rem;
+}
+
+.cabin__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+// Muestra el efecto del cambio sin tener que hacer la cuenta mentalmente
+.cabin__preview {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  opacity: 0.6;
+}
+
+.save {
+  width: 100%;
+  height: 60px;
+  font-size: 1.0625rem;
+  border-radius: 16px;
+  background: var(--river-mid);
+  color: #ffffff;
+}
+
+.error {
+  margin: 14px 0 0;
+  color: #b3261e;
+  font-weight: 500;
+}
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  opacity: 0.6;
+}

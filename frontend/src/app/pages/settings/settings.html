@@ -1,0 +1,130 @@
+<main class="page">
+  <header class="page__header">
+    <div class="page__bar">
+      <p class="page__date">Precios y cabinas</p>
+
+      <nav class="page__nav">
+        <a matButton routerLink="/calendario">Calendario</a>
+        <a matButton routerLink="/reservas">Reservar</a>
+        <a matButton routerLink="/">Inicio</a>
+        <app-theme-toggle />
+      </nav>
+    </div>
+
+    <h1 class="page__title">Administración</h1>
+  </header>
+
+  @if (loading()) {
+    <p class="empty">Cargando…</p>
+  } @else {
+    <form [formGroup]="form">
+      <section class="card">
+        <h2 class="card__title">Tarifa corporativa</h2>
+        <p class="card__note">Se cobra por huésped por noche, igual en todas las cabinas.</p>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="field">
+          <mat-label>Por persona por noche</mat-label>
+          <span matTextPrefix>₡&nbsp;</span>
+          <input
+            matInput
+            inputmode="numeric"
+            formControlName="corporateRate"
+            (input)="formatMoney(null, 'corporateRate')" />
+        </mat-form-field>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Alquiler a puerta cerrada</h2>
+        <p class="card__note">Las 15 cabinas en una sola reserva.</p>
+
+        <mat-button-toggle-group formControlName="fullMode" class="toggles">
+          <mat-button-toggle value="per_guest">Por persona</mat-button-toggle>
+          <mat-button-toggle value="flat">Monto fijo por noche</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <div class="row">
+          @if (form.controls.fullMode.value === 'per_guest') {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="field">
+              <mat-label>Por persona por noche</mat-label>
+              <span matTextPrefix>₡&nbsp;</span>
+              <input
+                matInput
+                inputmode="numeric"
+                formControlName="fullPerGuest"
+                (input)="formatMoney(null, 'fullPerGuest')" />
+            </mat-form-field>
+          } @else {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="field">
+              <mat-label>Monto por noche</mat-label>
+              <span matTextPrefix>₡&nbsp;</span>
+              <input
+                matInput
+                inputmode="numeric"
+                formControlName="fullFlat"
+                (input)="formatMoney(null, 'fullFlat')" />
+            </mat-form-field>
+          }
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Cabinas</h2>
+        <p class="card__note">
+          El precio base es lo que paga la primera persona. Cada persona adicional suma el monto
+          extra.
+        </p>
+
+        <div class="cabins">
+          @for (group of cabinRows; track group.value._id) {
+            <div class="cabin" [formGroup]="group" [class.cabin--off]="!group.value.active">
+              <div class="cabin__head">
+                <span class="cabin__number">{{ group.value.number }}</span>
+                <span class="cabin__name">{{ group.value.name }}</span>
+                <mat-slide-toggle formControlName="active" class="cabin__toggle">
+                  {{ group.value.active ? 'Activa' : 'Fuera de servicio' }}
+                </mat-slide-toggle>
+              </div>
+
+              <div class="cabin__fields">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Capacidad</mat-label>
+                  <input matInput type="number" min="1" max="20" formControlName="capacity" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Precio base</mat-label>
+                  <span matTextPrefix>₡&nbsp;</span>
+                  <input
+                    matInput
+                    inputmode="numeric"
+                    formControlName="basePrice"
+                    (input)="formatMoney(group, 'basePrice')" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Persona adicional</mat-label>
+                  <span matTextPrefix>₡&nbsp;</span>
+                  <input
+                    matInput
+                    inputmode="numeric"
+                    formControlName="extraGuestPrice"
+                    (input)="formatMoney(group, 'extraGuestPrice')" />
+                </mat-form-field>
+              </div>
+
+              <p class="cabin__preview">{{ preview(group) }}</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <button matButton="filled" class="save" [disabled]="saving()" (click)="save()">
+        Guardar cambios
+      </button>
+
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+    </form>
+  }
+</main>

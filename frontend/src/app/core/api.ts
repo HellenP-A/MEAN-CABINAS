@@ -30,6 +30,20 @@ export interface Guest {
   idNumber: string;
   fullName: string;
   phone?: string;
+  companyId?: Company | null;
+}
+
+/**
+ * Lo que se envia al crear un huesped.
+ * Se separa de Guest porque al leer la empresa llega como objeto y al
+ * escribir se manda solo su identificador.
+ */
+export interface GuestInput {
+  idType?: 'national' | 'foreign';
+  idNumber: string;
+  fullName: string;
+  phone?: string;
+  companyId?: string | null;
 }
 
 export interface FrequentGuest extends Guest {
@@ -126,6 +140,12 @@ export interface BookingDetail {
   balance: number;
 }
 
+export interface FullPropertyRate {
+  mode: 'per_guest' | 'flat';
+  ratePerGuest: number;
+  flatRate: number;
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -142,6 +162,11 @@ export interface Quote {
 @Injectable({ providedIn: 'root' })
 export class Api {
   private http = inject(HttpClient);
+
+  /** Todas las cabinas, en orden, sin importar disponibilidad. */
+  cabins(): Observable<Cabin[]> {
+    return this.http.get<Cabin[]>(`${API_URL}/cabins`);
+  }
 
   /** Las 15 cabinas en orden, cada una con su estado de ocupacion. */
   cabinsWithAvailability(checkIn: string, checkOut: string): Observable<Cabin[]> {
@@ -208,11 +233,31 @@ export class Api {
     return this.http.get<Company[]>(`${API_URL}/companies`);
   }
 
+  updateCabin(id: string, payload: unknown): Observable<Cabin> {
+    return this.http.put<Cabin>(`${API_URL}/cabins/${id}`, payload);
+  }
+
+  corporateRate(): Observable<{ rate: number }> {
+    return this.http.get<{ rate: number }>(`${API_URL}/settings/corporate-rate`);
+  }
+
+  saveCorporateRate(rate: number): Observable<{ rate: number }> {
+    return this.http.put<{ rate: number }>(`${API_URL}/settings/corporate-rate`, { rate });
+  }
+
+  fullPropertyRate(): Observable<FullPropertyRate> {
+    return this.http.get<FullPropertyRate>(`${API_URL}/settings/full-property-rate`);
+  }
+
+  saveFullPropertyRate(payload: FullPropertyRate): Observable<FullPropertyRate> {
+    return this.http.put<FullPropertyRate>(`${API_URL}/settings/full-property-rate`, payload);
+  }
+
   searchGuests(search: string): Observable<Guest[]> {
     return this.http.get<Guest[]>(`${API_URL}/guests`, { params: { search } });
   }
 
-  createGuest(guest: Partial<Guest>): Observable<Guest> {
+  createGuest(guest: GuestInput): Observable<Guest> {
     return this.http.post<Guest>(`${API_URL}/guests`, guest);
   }
 
