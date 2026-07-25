@@ -4,5 +4,6 @@ module.exports = {
   Guest: require('./Guest'),
   Booking: require('./Booking'),
   OccupiedNight: require('./OccupiedNight'),
-  Payment: require('./Payment')
+  Payment: require('./Payment'),
+  Setting: require('./Setting')
 };
