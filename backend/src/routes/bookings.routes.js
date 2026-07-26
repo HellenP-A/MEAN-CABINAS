@@ -3,6 +3,7 @@ const { Booking } = require('../models');
 const {
   createBooking,
   cancelBooking,
+  changeStatus,
   updateBooking,
   getBookingDetail,
   quote
@@ -64,13 +65,7 @@ router.put('/:id', async (req, res, next) => {
 
 router.patch('/:id/status', async (req, res, next) => {
   try {
-    const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
-      { status: req.body.status },
-      { new: true, runValidators: true }
-    );
-    if (!booking) return res.status(404).json({ message: 'La reserva no existe' });
-    res.json(booking);
+    res.json(await changeStatus(req.params.id, req.body.status, req.body.date));
   } catch (error) {
     next(error);
   }

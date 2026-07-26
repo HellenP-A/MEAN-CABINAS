@@ -24,6 +24,10 @@ const bookingSchema = new mongoose.Schema(
     subtotal: { type: Number, required: true, min: 0 },
     discountPercent: { type: Number, default: 0, enum: [0, 5, 10, 15, 20] },
     discountAmount: { type: Number, default: 0, min: 0 },
+    // netTotal es la base imponible; total es lo que paga el huesped
+    netTotal: { type: Number, default: 0, min: 0 },
+    taxRate: { type: Number, default: 0, min: 0 },
+    taxAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
     status: {
       type: String,

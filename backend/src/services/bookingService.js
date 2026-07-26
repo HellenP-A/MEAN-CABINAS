@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { Booking, Cabin, Payment, OccupiedNight } = require('../models');
 const { toUtcDate, countNights, listNights } = require('./dateUtils');
 const { calculatePrice } = require('./priceService');
+const { setCleaningState } = require('./cleaningService');
 
 const DUPLICATE_KEY = 11000;
 
@@ -261,6 +262,9 @@ async function calendarRange(fromValue, dayCount = 14) {
       guests: booking.guests,
       rateType: booking.rateType,
       discountPercent: booking.discountPercent,
+      netTotal: booking.netTotal ?? booking.total,
+      taxRate: booking.taxRate ?? 0,
+      taxAmount: booking.taxAmount ?? 0,
       total: booking.total,
       status: booking.status
     };
@@ -371,9 +375,42 @@ async function updateBooking(bookingId, payload) {
   return booking;
 }
 
+/**
+ * Avanza la estadia: reservada -> en casa -> cerrada.
+ *
+ * Al cerrar, la cabina queda marcada para limpieza ese mismo dia. Es el enlace
+ * entre lo que pasa en recepcion y lo que ve quien va a limpiar.
+ */
+async function changeStatus(bookingId, status, dateValue) {
+  const allowed = ['reserved', 'checked_in', 'closed', 'cancelled'];
+  if (!allowed.includes(status)) throw fail('Estado invalido', 400);
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw fail('La reserva no existe', 404);
+
+  booking.status = status;
+  await booking.save();
+
+  if (status === 'closed') {
+    const date = dateValue || new Date().toISOString().slice(0, 10);
+
+    const cabins =
+      booking.bookingType === 'full'
+        ? await Cabin.find({ active: true }).select('_id').lean()
+        : [{ _id: booking.cabinId }];
+
+    for (const cabin of cabins) {
+      if (cabin._id) await setCleaningState(cabin._id, date, 'dirty');
+    }
+  }
+
+  return booking;
+}
+
 module.exports = {
   createBooking,
   cancelBooking,
+  changeStatus,
   updateBooking,
   getBookingDetail,
   findAvailableCabins,

@@ -5,7 +5,7 @@
 
       <nav class="page__nav">
         <a matButton routerLink="/calendario">Calendario</a>
-        <a matButton routerLink="/reservas">Reservar</a>
+        <a matButton routerLink="/reservas">Agregar huésped</a>
         <a matButton routerLink="/">Inicio</a>
         <app-theme-toggle />
       </nav>
@@ -18,6 +18,26 @@
     <p class="empty">Cargando…</p>
   } @else {
     <form [formGroup]="form">
+      <section class="card">
+        <h2 class="card__title">IVA</h2>
+        <p class="card__note">
+          Los precios configurados son netos: el impuesto se suma encima. Desactivarlo en una
+          tarifa hace que esas reservas se cobren sin IVA.
+        </p>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="field">
+          <mat-label>Porcentaje</mat-label>
+          <input matInput type="number" min="0" max="100" formControlName="taxRate" />
+          <span matTextSuffix>&nbsp;%</span>
+        </mat-form-field>
+
+        <div class="switches">
+          <mat-slide-toggle formControlName="applyToGeneral">Tarifa general</mat-slide-toggle>
+          <mat-slide-toggle formControlName="applyToCorporate">Tarifa corporativa</mat-slide-toggle>
+          <mat-slide-toggle formControlName="applyToFull">Puerta cerrada</mat-slide-toggle>
+        </div>
+      </section>
+
       <section class="card">
         <h2 class="card__title">Tarifa corporativa</h2>
         <p class="card__note">Se cobra por huésped por noche, igual en todas las cabinas.</p>

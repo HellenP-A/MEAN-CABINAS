@@ -3,7 +3,9 @@ const {
   getCorporateRate,
   setCorporateRate,
   getFullPropertyRate,
-  setFullPropertyRate
+  setFullPropertyRate,
+  getTax,
+  setTax
 } = require('../services/rateService');
 const { getCleaningWindow, setCleaningWindow } = require('../services/cleaningService');
 
@@ -54,6 +56,23 @@ router.get('/cleaning', async (req, res, next) => {
 router.put('/cleaning', async (req, res, next) => {
   try {
     const setting = await setCleaningWindow(req.body);
+    res.json(setting.value);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/tax', async (req, res, next) => {
+  try {
+    res.json(await getTax());
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/tax', async (req, res, next) => {
+  try {
+    const setting = await setTax(req.body);
     res.json(setting.value);
   } catch (error) {
     next(error);

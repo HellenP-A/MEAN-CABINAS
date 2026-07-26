@@ -4,7 +4,7 @@
       <p class="page__date">{{ monthLabel() }}</p>
 
       <nav class="page__nav">
-        <a matButton routerLink="/reservas">Reservar</a>
+        <a matButton routerLink="/reservas">Agregar huésped</a>
         <a matButton routerLink="/reservadas">Reservadas</a>
         <a matButton routerLink="/precios">Precios</a>
         <a matButton routerLink="/">Inicio</a>
@@ -126,6 +126,13 @@
             }
           </dl>
 
+          @if (current.booking.taxAmount > 0) {
+            <p class="detail__breakdown">
+              Base {{ money(current.booking.netTotal) }} · IVA {{ current.booking.taxRate }} %
+              {{ money(current.booking.taxAmount) }}
+            </p>
+          }
+
           <p class="detail__total">{{ money(current.booking.total) }}</p>
 
           <app-booking-payments [bookingId]="current.booking._id" />
@@ -143,6 +150,22 @@
               </div>
             </div>
           } @else {
+            <div class="stay">
+              <span class="stay__badge" [class]="'stay__badge--' + current.booking.status">
+                {{ statusLabel(current.booking.status) }}
+              </span>
+
+              @if (current.booking.status === 'reserved') {
+                <button matButton="filled" class="stay__action" [disabled]="working()"
+                        (click)="setStatus('checked_in')">Registrar llegada</button>
+              } @else if (current.booking.status === 'checked_in') {
+                <button matButton="filled" class="stay__action" [disabled]="working()"
+                        (click)="setStatus('closed')">Registrar salida</button>
+              } @else if (current.booking.status === 'closed') {
+                <span class="stay__note">La cabina quedó marcada para limpieza.</span>
+              }
+            </div>
+
             <div class="detail__actions">
               <button matButton="filled" (click)="startEdit()">Editar</button>
               <button matButton="outlined" class="detail__delete" (click)="askDelete()">

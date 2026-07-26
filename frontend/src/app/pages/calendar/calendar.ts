@@ -309,6 +309,40 @@ export class Calendar {
     });
   }
 
+  /** Registra la llegada o la salida del huesped. */
+  setStatus(status: 'checked_in' | 'closed'): void {
+    const current = this.selected();
+    if (!current) return;
+
+    this.working.set(true);
+    this.errorMessage.set('');
+
+    this.api.setBookingStatus(current.booking._id, { status, date: this.todayIso }).subscribe({
+      next: () => {
+        this.working.set(false);
+        // Se refleja de una vez para que el boton cambie sin esperar la recarga
+        this.selected.set({ ...current, booking: { ...current.booking, status } });
+        this.snackBar.open(
+          status === 'checked_in' ? 'Llegada registrada' : 'Salida registrada, cabina en limpieza',
+          'Cerrar',
+          { duration: 4000 }
+        );
+        this.load();
+      },
+      error: (error) => {
+        this.working.set(false);
+        this.errorMessage.set(error.error?.message ?? 'No fue posible cambiar el estado');
+      }
+    });
+  }
+
+  statusLabel(status: string): string {
+    if (status === 'checked_in') return 'Hospedado';
+    if (status === 'closed') return 'Estadía cerrada';
+    if (status === 'cancelled') return 'Cancelada';
+    return 'Reservada';
+  }
+
   isToday(index: number): boolean {
     return index === this.todayIndex();
   }

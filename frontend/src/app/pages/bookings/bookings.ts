@@ -71,6 +71,8 @@ export class Bookings {
   quote = signal<Quote | null>(null);
   errorMessage = signal('');
   saving = signal(false);
+  // Permite ver el monto sin impuesto, para cotizar o comparar
+  showNet = signal(false);
   loading = signal(false);
   frequent = signal<FrequentGuest[]>([]);
   companies = signal<Company[]>([]);

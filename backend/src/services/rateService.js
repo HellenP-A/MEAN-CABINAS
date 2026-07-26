@@ -3,6 +3,10 @@ const { Setting } = require('../models');
 const CORPORATE_RATE_KEY = 'corporateRatePerGuest';
 const FULL_PROPERTY_KEY = 'fullPropertyRate';
 const FULL_PROPERTY_MODES = ['per_guest', 'flat'];
+const TAX_KEY = 'tax';
+
+// Los precios configurados son netos: el impuesto se suma encima
+const TAX_DEFAULTS = { rate: 13, applyToGeneral: true, applyToCorporate: true, applyToFull: true };
 
 function fail(message, status = 400) {
   const error = new Error(message);
@@ -54,7 +58,32 @@ async function setFullPropertyRate({ mode, ratePerGuest, flatRate }) {
   );
 }
 
+/** Porcentaje de IVA y a que tarifas se aplica. */
+async function getTax() {
+  const setting = await Setting.findOne({ key: TAX_KEY });
+  return setting ? { ...TAX_DEFAULTS, ...setting.value } : TAX_DEFAULTS;
+}
+
+async function setTax(payload) {
+  const current = await getTax();
+  const value = {
+    rate: payload.rate != null ? Number(payload.rate) : current.rate,
+    applyToGeneral: payload.applyToGeneral ?? current.applyToGeneral,
+    applyToCorporate: payload.applyToCorporate ?? current.applyToCorporate,
+    applyToFull: payload.applyToFull ?? current.applyToFull
+  };
+
+  return Setting.findOneAndUpdate(
+    { key: TAX_KEY },
+    { value, label: 'IVA y tarifas a las que aplica' },
+    { new: true, upsert: true }
+  );
+}
+
 module.exports = {
+  getTax,
+  setTax,
+  TAX_KEY,
   getCorporateRate,
   setCorporateRate,
   getFullPropertyRate,

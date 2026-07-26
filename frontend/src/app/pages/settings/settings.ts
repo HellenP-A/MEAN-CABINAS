@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { Api, Cabin, CleaningWindow, FullPropertyRate } from '../../core/api';
+import { Api, Cabin, CleaningWindow, FullPropertyRate, TaxSettings } from '../../core/api';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 /** Texto con separadores a numero limpio. */
@@ -52,6 +52,10 @@ export class Settings {
     fullMode: ['per_guest' as 'per_guest' | 'flat'],
     fullPerGuest: [''],
     fullFlat: [''],
+    taxRate: [13],
+    applyToGeneral: [true],
+    applyToCorporate: [true],
+    applyToFull: [true],
     checkoutTime: ['10:00'],
     readyTime: ['14:00'],
     cabins: this.fb.array<FormGroup>([])
@@ -70,16 +74,21 @@ export class Settings {
       cabins: this.api.cabins(),
       corporate: this.api.corporateRate(),
       full: this.api.fullPropertyRate(),
-      cleaning: this.api.cleaningWindow()
+      cleaning: this.api.cleaningWindow(),
+      tax: this.api.tax()
     }).subscribe({
-      next: ({ cabins, corporate, full, cleaning }) => {
+      next: ({ cabins, corporate, full, cleaning, tax }) => {
         this.form.patchValue({
           corporateRate: toText(corporate.rate),
           fullMode: full.mode,
           fullPerGuest: toText(full.ratePerGuest),
           fullFlat: toText(full.flatRate),
           checkoutTime: cleaning.checkoutTime,
-          readyTime: cleaning.readyTime
+          readyTime: cleaning.readyTime,
+          taxRate: tax.rate,
+          applyToGeneral: tax.applyToGeneral,
+          applyToCorporate: tax.applyToCorporate,
+          applyToFull: tax.applyToFull
         });
 
         const array = this.form.controls.cabins as FormArray<FormGroup>;
@@ -161,6 +170,12 @@ export class Settings {
         checkoutTime: value.checkoutTime ?? '10:00',
         readyTime: value.readyTime ?? '14:00'
       } as CleaningWindow),
+      this.api.saveTax({
+        rate: Number(value.taxRate ?? 13),
+        applyToGeneral: Boolean(value.applyToGeneral),
+        applyToCorporate: Boolean(value.applyToCorporate),
+        applyToFull: Boolean(value.applyToFull)
+      } as TaxSettings),
       ...(cabinCalls.length > 0 ? cabinCalls : [of(null)])
     ]).subscribe({
       next: () => {

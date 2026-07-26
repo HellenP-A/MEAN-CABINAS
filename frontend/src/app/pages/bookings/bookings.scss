@@ -315,3 +315,23 @@ mat-form-field {
   text-transform: uppercase;
   color: var(--river-mid);
 }
+
+.summary__exempt {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  opacity: 0.65;
+}
+
+// Interruptor discreto: el total con IVA sigue siendo el protagonista
+.summary__switch {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--river-mid);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

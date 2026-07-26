@@ -104,6 +104,9 @@ export interface CalendarBooking {
   guests: number;
   rateType: string;
   discountPercent: number;
+  netTotal: number;
+  taxRate: number;
+  taxAmount: number;
   total: number;
   status: string;
 }
@@ -170,6 +173,13 @@ export interface StatusBoard {
   cabins: CabinStatus[];
 }
 
+export interface TaxSettings {
+  rate: number;
+  applyToGeneral: boolean;
+  applyToCorporate: boolean;
+  applyToFull: boolean;
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -180,6 +190,9 @@ export interface Quote {
   subtotal: number;
   discountPercent: number;
   discountAmount: number;
+  netTotal: number;
+  taxRate: number;
+  taxAmount: number;
   total: number;
 }
 
@@ -297,6 +310,19 @@ export class Api {
 
   updateGuest(id: string, payload: unknown): Observable<Guest> {
     return this.http.put<Guest>(`${API_URL}/guests/${id}`, payload);
+  }
+
+  tax(): Observable<TaxSettings> {
+    return this.http.get<TaxSettings>(`${API_URL}/settings/tax`);
+  }
+
+  saveTax(payload: TaxSettings): Observable<TaxSettings> {
+    return this.http.put<TaxSettings>(`${API_URL}/settings/tax`, payload);
+  }
+
+  /** Registra llegada o salida del huesped. */
+  setBookingStatus(id: string, payload: unknown): Observable<unknown> {
+    return this.http.patch(`${API_URL}/bookings/${id}/status`, payload);
   }
 
   searchGuests(search: string): Observable<Guest[]> {

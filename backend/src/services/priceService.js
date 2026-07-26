@@ -1,15 +1,16 @@
-const { getCorporateRate, getFullPropertyRate } = require('./rateService');
+const { getCorporateRate, getFullPropertyRate, getTax } = require('./rateService');
 
 const ALLOWED_DISCOUNTS = [0, 5, 10, 15, 20];
 
 /**
- * Calcula el monto de una reserva. Cada caso tiene su formula:
+ * Calcula el monto de una reserva.
  *
  *   por cabina, general     -> base + adicional x (personas - 1)
  *   por cabina, corporativa -> tarifa por huesped x personas
  *   puerta cerrada          -> por persona, o un monto fijo por noche
  *
- * Sobre el subtotal se aplica el descuento y se redondea al colon.
+ * Los precios configurados son netos. Sobre el subtotal se aplica el descuento
+ * y sobre ese neto se calcula el IVA, que puede estar activo o no segun la tarifa.
  */
 async function calculatePrice({
   bookingType = 'cabin',
@@ -48,6 +49,18 @@ async function calculatePrice({
 
   const subtotal = nights * nightlyRate;
   const discountAmount = Math.round((subtotal * percent) / 100);
+  const netTotal = subtotal - discountAmount;
+
+  const tax = await getTax();
+  const applies =
+    bookingType === 'full'
+      ? tax.applyToFull
+      : rateType === 'corporate'
+        ? tax.applyToCorporate
+        : tax.applyToGeneral;
+
+  const taxRate = applies ? Number(tax.rate) : 0;
+  const taxAmount = Math.round((netTotal * taxRate) / 100);
 
   return {
     rate,
@@ -55,7 +68,10 @@ async function calculatePrice({
     subtotal,
     discountPercent: percent,
     discountAmount,
-    total: subtotal - discountAmount
+    netTotal,
+    taxRate,
+    taxAmount,
+    total: netTotal + taxAmount
   };
 }
 

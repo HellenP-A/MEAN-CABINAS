@@ -244,10 +244,29 @@
         </div>
       }
 
+      @if (q.taxAmount > 0) {
+        <div class="summary__line">
+          <span>Base sin IVA</span>
+          <span>{{ money(q.netTotal) }}</span>
+        </div>
+        <div class="summary__line">
+          <span>IVA {{ q.taxRate }} %</span>
+          <span>{{ money(q.taxAmount) }}</span>
+        </div>
+      } @else {
+        <p class="summary__exempt">Esta tarifa no lleva IVA.</p>
+      }
+
       <div class="summary__total">
-        <span>Total a cobrar</span>
-        <strong>{{ money(q.total) }}</strong>
+        <span>{{ showNet() ? 'Total sin IVA' : 'Total a cobrar' }}</span>
+        <strong>{{ money(showNet() ? q.netTotal : q.total) }}</strong>
       </div>
+
+      @if (q.taxAmount > 0) {
+        <button type="button" class="summary__switch" (click)="showNet.set(!showNet())">
+          {{ showNet() ? 'Ver con IVA' : 'Ver sin IVA' }}
+        </button>
+      }
     } @else {
       <p class="summary__empty">Complete los datos para ver el monto.</p>
     }
