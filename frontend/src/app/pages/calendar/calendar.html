@@ -93,7 +93,13 @@
       <section class="detail">
         <div class="detail__head">
           <div>
-            <p class="detail__cabin">{{ current.cabinName }}</p>
+            <p class="detail__kicker">Detalle de la reserva</p>
+            <div class="detail__id">
+              <span class="detail__cabin">{{ current.cabinName }}</span>
+              <span class="badge" [class]="'badge--' + current.booking.status">
+                {{ statusLabel(current.booking.status) }}
+              </span>
+            </div>
             <h2 class="detail__name">{{ current.booking.guestName }}</h2>
           </div>
           <button matButton (click)="closeDetail()">Cerrar</button>
@@ -127,13 +133,31 @@
           </dl>
 
           @if (current.booking.taxAmount > 0) {
-            <p class="detail__breakdown">
-              Base {{ money(current.booking.netTotal) }} · IVA {{ current.booking.taxRate }} %
-              {{ money(current.booking.taxAmount) }}
-            </p>
-          }
+            <div class="money">
+              <div class="money__line">
+                <span>Base sin IVA</span>
+                <span>{{ money(current.booking.netTotal) }}</span>
+              </div>
+              <div class="money__line">
+                <span>IVA {{ current.booking.taxRate }} %</span>
+                <span>{{ money(current.booking.taxAmount) }}</span>
+              </div>
+            </div>
 
-          <p class="detail__total">{{ money(current.booking.total) }}</p>
+            <p class="detail__label">
+              {{ showNet() ? 'Total sin IVA' : 'Total a cobrar' }}
+            </p>
+            <p class="detail__total">
+              {{ money(showNet() ? current.booking.netTotal : current.booking.total) }}
+            </p>
+
+            <button type="button" class="detail__switch" (click)="showNet.set(!showNet())">
+              {{ showNet() ? 'Ver con IVA' : 'Ver sin IVA' }}
+            </button>
+          } @else {
+            <p class="detail__total">{{ money(current.booking.total) }}</p>
+            <p class="detail__label">Reserva registrada sin IVA</p>
+          }
 
           <app-booking-payments [bookingId]="current.booking._id" />
 
@@ -150,27 +174,27 @@
               </div>
             </div>
           } @else {
-            <div class="stay">
-              <span class="stay__badge" [class]="'stay__badge--' + current.booking.status">
-                {{ statusLabel(current.booking.status) }}
-              </span>
+            <div class="actions">
+              <p class="actions__title">Acciones</p>
 
-              @if (current.booking.status === 'reserved') {
-                <button matButton="filled" class="stay__action" [disabled]="working()"
-                        (click)="setStatus('checked_in')">Registrar llegada</button>
-              } @else if (current.booking.status === 'checked_in') {
-                <button matButton="filled" class="stay__action" [disabled]="working()"
-                        (click)="setStatus('closed')">Registrar salida</button>
-              } @else if (current.booking.status === 'closed') {
-                <span class="stay__note">La cabina quedó marcada para limpieza.</span>
-              }
-            </div>
+              <div class="actions__row">
+                @if (current.booking.status === 'reserved') {
+                  <button matButton="filled" class="actions__main" [disabled]="working()"
+                          (click)="setStatus('checked_in')">Registrar llegada</button>
+                } @else if (current.booking.status === 'checked_in') {
+                  <button matButton="filled" class="actions__main" [disabled]="working()"
+                          (click)="setStatus('closed')">Registrar salida</button>
+                } @else if (current.booking.status === 'closed') {
+                  <span class="actions__note">La cabina quedó marcada para limpieza.</span>
+                }
 
-            <div class="detail__actions">
-              <button matButton="filled" (click)="startEdit()">Editar</button>
-              <button matButton="outlined" class="detail__delete" (click)="askDelete()">
-                Eliminar
-              </button>
+                <span class="actions__spacer"></span>
+
+                <button matButton="outlined" (click)="startEdit()">Editar</button>
+                <button matButton="outlined" class="actions__delete" (click)="askDelete()">
+                  Eliminar
+                </button>
+              </div>
             </div>
           }
         } @else {
@@ -223,7 +247,7 @@
               </mat-form-field>
             </div>
 
-            <div class="detail__actions">
+            <div class="actions__row">
               <button matButton="filled" [disabled]="working()" (click)="saveEdit()">
                 Guardar cambios
               </button>

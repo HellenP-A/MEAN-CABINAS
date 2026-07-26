@@ -89,6 +89,8 @@ export class Calendar {
   editing = signal(false);
   confirmingDelete = signal(false);
   working = signal(false);
+  // Permite ver el monto sin impuesto, para cotizar o comparar
+  showNet = signal(false);
   errorMessage = signal('');
 
   editForm = this.fb.nonNullable.group({
