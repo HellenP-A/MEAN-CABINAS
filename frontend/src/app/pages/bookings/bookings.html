@@ -61,7 +61,8 @@
           <mat-select formControlName="cabinId">
             @for (cabin of cabins(); track cabin._id) {
               <mat-option [value]="cabin._id" [disabled]="!cabin.available">
-                {{ cabin.name }}@if (!cabin.available) { — ocupada }
+                {{ cabin.name }} · Admite {{ cabin.capacity }}
+                {{ cabin.capacity === 1 ? 'persona' : 'personas' }}@if (!cabin.available) { · ocupada }
               </mat-option>
             }
           </mat-select>
