@@ -1,0 +1,145 @@
+<main class="page">
+  <header class="page__header">
+    <div class="page__bar">
+      <p class="page__date">Reportes</p>
+
+      <nav class="page__nav no-print">
+        <a matButton routerLink="/calendario">Calendario</a>
+        <a matButton routerLink="/precios">Precios</a>
+        <a matButton routerLink="/">Inicio</a>
+        <app-theme-toggle />
+      </nav>
+    </div>
+
+    <h1 class="page__title">Ingresos y ocupación</h1>
+  </header>
+
+  <form class="filters no-print" [formGroup]="form">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Desde</mat-label>
+      <input matInput [matDatepicker]="fromPicker" formControlName="from" />
+      <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+      <mat-datepicker #fromPicker />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput [matDatepicker]="toPicker" formControlName="to" />
+      <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+      <mat-datepicker #toPicker />
+    </mat-form-field>
+
+    <mat-button-toggle-group formControlName="groupBy">
+      <mat-button-toggle value="day">Día</mat-button-toggle>
+      <mat-button-toggle value="week">Semana</mat-button-toggle>
+      <mat-button-toggle value="month">Mes</mat-button-toggle>
+      <mat-button-toggle value="year">Año</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <button matButton="filled" (click)="load()">Generar</button>
+    <button matButton="outlined" (click)="print()">Descargar PDF</button>
+  </form>
+
+  <p class="stamp">{{ rangeNote() }} · generado el {{ generatedAt }}</p>
+
+  @if (loading()) {
+    <p class="empty">Cargando…</p>
+  } @else if (errorMessage()) {
+    <p class="empty empty--error">{{ errorMessage() }}</p>
+  } @else if (report(); as data) {
+    <div class="cards">
+      <div class="card">
+        <span class="card__label">Producción del período</span>
+        <strong class="card__value">{{ money(data.totals.revenue) }}</strong>
+        <span class="card__note">Lo que valen las noches vendidas</span>
+      </div>
+
+      <div class="card">
+        <span class="card__label">Cobrado</span>
+        <strong class="card__value">{{ money(data.totals.income) }}</strong>
+        <span class="card__note">Dinero recibido en el período</span>
+      </div>
+
+      <div class="card">
+        <span class="card__label">Noches vendidas</span>
+        <strong class="card__value">{{ data.totals.nights }}</strong>
+        <span class="card__note">Suma de cabinas por noche</span>
+      </div>
+
+      @if (data.best) {
+        <div class="card card--good">
+          <span class="card__label">Temporada alta</span>
+          <strong class="card__value">{{ label(data.best.period) }}</strong>
+          <span class="card__note">{{ money(data.best.revenue) }}</span>
+        </div>
+      }
+
+      @if (data.worst) {
+        <div class="card card--low">
+          <span class="card__label">Temporada baja</span>
+          <strong class="card__value">{{ label(data.worst.period) }}</strong>
+          <span class="card__note">{{ money(data.worst.revenue) }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="switch no-print">
+      <mat-button-toggle-group [value]="metric()">
+        <mat-button-toggle value="revenue" (click)="metric.set('revenue')">
+          Ver producción
+        </mat-button-toggle>
+        <mat-button-toggle value="income" (click)="metric.set('income')">
+          Ver cobrado
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    @if (data.rows.length === 0) {
+      <p class="empty">No hay movimientos en ese rango.</p>
+    } @else {
+      <section class="chart">
+        @for (row of data.rows; track row.period) {
+          <div class="chart__row">
+            <span class="chart__label">{{ label(row.period) }}</span>
+            <div class="chart__track">
+              <div class="chart__bar" [style.width]="barWidth(row)"></div>
+            </div>
+            <span class="chart__value">{{ money(value(row)) }}</span>
+          </div>
+        }
+      </section>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Período</th>
+            <th class="num">Noches</th>
+            <th class="num">Producción</th>
+            <th class="num">Por noche</th>
+            <th class="num">Cobrado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data.rows; track row.period) {
+            <tr>
+              <td>{{ label(row.period) }}</td>
+              <td class="num">{{ row.nights }}</td>
+              <td class="num">{{ money(row.revenue) }}</td>
+              <td class="num">{{ money(perNight(row)) }}</td>
+              <td class="num">{{ money(row.income) }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td class="num">{{ data.totals.nights }}</td>
+            <td class="num">{{ money(data.totals.revenue) }}</td>
+            <td class="num">—</td>
+            <td class="num">{{ money(data.totals.income) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    }
+  }
+</main>

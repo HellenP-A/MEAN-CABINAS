@@ -1,0 +1,48 @@
+<main class="login">
+  <div class="login__corner">
+    <app-theme-toggle />
+  </div>
+
+  <section class="card">
+    <p class="card__place">Canalete · Upala · Alajuela</p>
+    <h1 class="card__title">Cabinas El Río</h1>
+    <p class="card__text">Ingrese con su usuario para continuar.</p>
+
+    <form class="form" [formGroup]="form" (keydown.enter)="submit()">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Usuario</mat-label>
+        <input matInput formControlName="username" autocomplete="username" autocapitalize="none" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Contraseña</mat-label>
+        <input
+          matInput
+          [type]="hidePassword() ? 'password' : 'text'"
+          formControlName="password"
+          autocomplete="current-password" />
+        <button
+          type="button"
+          matSuffix
+          matButton
+          (click)="hidePassword.set(!hidePassword())">
+          {{ hidePassword() ? 'Ver' : 'Ocultar' }}
+        </button>
+      </mat-form-field>
+
+      @if (errorMessage()) {
+        <p class="form__error">{{ errorMessage() }}</p>
+      }
+
+      <button matButton="filled" class="form__action" [disabled]="working()" (click)="submit()">
+        {{ working() ? 'Entrando…' : 'Entrar' }}
+      </button>
+    </form>
+  </section>
+
+  <div class="river" aria-hidden="true">
+    <svg class="river__layer" viewBox="0 0 2880 220" preserveAspectRatio="none">
+      <path d="M0,160 C300,110 600,200 900,160 C1200,120 1320,140 1440,160 C1740,200 2040,110 2340,160 C2580,200 2700,180 2880,160 L2880,220 L0,220 Z" />
+    </svg>
+  </div>
+</main>

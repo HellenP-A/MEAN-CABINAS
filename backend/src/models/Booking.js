@@ -17,6 +17,9 @@ const bookingSchema = new mongoose.Schema(
     checkIn: { type: Date, required: true },
     checkOut: { type: Date, required: true },
     nights: { type: Number, required: true, min: 1 },
+    // Cuantas cabinas ocupa: 1 la normal, 15 la de puerta cerrada.
+    // Sirve para repartir el monto entre las noches vendidas.
+    cabinCount: { type: Number, default: 1, min: 1 },
     guests: { type: Number, required: true, min: 1 },
     rateType: { type: String, enum: ['general', 'corporate'], default: 'general' },
     rate: { type: Number, required: true, min: 0 },

@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Auth } from '../../core/auth';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 @Component({
@@ -9,6 +10,8 @@ import { ThemeToggle } from '../../core/theme-toggle';
   styleUrl: './welcome.scss'
 })
 export class Welcome {
+  auth = inject(Auth);
+
   // El año se calcula solo, para que el pie no quede desactualizado
   readonly year = new Date().getFullYear();
 }

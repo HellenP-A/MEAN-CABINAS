@@ -5,6 +5,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 require('./models');
 const errorHandler = require('./middlewares/errorHandler');
+const { requireAuth, requireAdmin } = require('./middlewares/auth');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,7 +24,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/settings', require('./routes/settings.routes'));
+app.use('/api/auth', require('./routes/auth.routes'));
+
+// Precios y reportes solo para administradores
+app.use('/api/reports', requireAuth, requireAdmin, require('./routes/reports.routes'));
+
+app.use('/api/settings', requireAuth, requireAdmin, require('./routes/settings.routes'));
 app.use('/api/cabins', require('./routes/cabins.routes'));
 app.use('/api/companies', require('./routes/companies.routes'));
 app.use('/api/guests', require('./routes/guests.routes'));

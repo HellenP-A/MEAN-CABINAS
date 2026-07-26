@@ -180,6 +180,24 @@ export interface TaxSettings {
   applyToFull: boolean;
 }
 
+export interface ReportRow {
+  period: string;
+  income: number;
+  payments: number;
+  nights: number;
+  revenue: number;
+}
+
+export interface IncomeReport {
+  from: string;
+  to: string;
+  groupBy: 'day' | 'week' | 'month';
+  rows: ReportRow[];
+  totals: { income: number; payments: number; nights: number; revenue: number };
+  best: ReportRow | null;
+  worst: ReportRow | null;
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -323,6 +341,12 @@ export class Api {
   /** Registra llegada o salida del huesped. */
   setBookingStatus(id: string, payload: unknown): Observable<unknown> {
     return this.http.patch(`${API_URL}/bookings/${id}/status`, payload);
+  }
+
+  incomeReport(from: string, to: string, groupBy: string): Observable<IncomeReport> {
+    return this.http.get<IncomeReport>(`${API_URL}/reports/income`, {
+      params: { from, to, groupBy }
+    });
   }
 
   searchGuests(search: string): Observable<Guest[]> {

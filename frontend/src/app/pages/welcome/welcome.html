@@ -1,5 +1,7 @@
 <main class="welcome">
   <div class="welcome__corner">
+    <span class="session">{{ auth.user()?.fullName }}</span>
+    <button type="button" class="session__out" (click)="auth.logout()">Salir</button>
     <app-theme-toggle />
   </div>
 
@@ -16,6 +18,10 @@
     </p>
 
     <a class="hero__action" routerLink="/reservas">Entrar</a>
+
+    @if (auth.isAdmin()) {
+      <a class="hero__secondary" routerLink="/reportes">Ver reportes</a>
+    }
 
     <a class="hero__secondary" routerLink="/calendario">Ver calendario</a>
 

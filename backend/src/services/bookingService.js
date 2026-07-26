@@ -114,6 +114,7 @@ async function createBooking(payload) {
       checkIn: toUtcDate(checkIn),
       checkOut: toUtcDate(checkOut),
       nights,
+      cabinCount: cabins.length,
       guests: guestCount,
       rateType,
       ...price,
@@ -319,6 +320,7 @@ async function updateBooking(bookingId, payload) {
     bookingType,
     cabin,
     nights,
+    cabinCount: cabins.length,
     guests: guestCount,
     rateType: merged.rateType,
     discountPercent: merged.discountPercent
@@ -365,6 +367,7 @@ async function updateBooking(bookingId, payload) {
     checkIn: toUtcDate(merged.checkIn),
     checkOut: toUtcDate(merged.checkOut),
     nights,
+    cabinCount: cabins.length,
     guests: guestCount,
     rateType: merged.rateType,
     notes: merged.notes,

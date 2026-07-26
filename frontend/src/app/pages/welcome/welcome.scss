@@ -179,3 +179,27 @@
 :host-context(html.dark) .hero__secondary {
   color: var(--river-soft);
 }
+
+.welcome__corner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.session {
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.session__out {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--river-mid);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
