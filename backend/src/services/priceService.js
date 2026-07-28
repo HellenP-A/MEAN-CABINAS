@@ -5,16 +5,17 @@ const ALLOWED_DISCOUNTS = [0, 5, 10, 15, 20];
 /**
  * Calcula el monto de una reserva.
  *
- *   por cabina, general     -> base + adicional x (personas - 1)
+ *   por cabina, general     -> cada cabina cobra su base mas sus adicionales,
+ *                              y se suman todas las cabinas de la reserva
  *   por cabina, corporativa -> tarifa por huesped x personas
  *   puerta cerrada          -> por persona, o un monto fijo por noche
  *
- * Los precios configurados son netos. Sobre el subtotal se aplica el descuento
- * y sobre ese neto se calcula el IVA, que puede estar activo o no segun la tarifa.
+ * Los precios son netos. Sobre el subtotal se aplica el descuento y sobre ese
+ * neto se calcula el IVA, que puede estar activo o no segun la tarifa.
  */
 async function calculatePrice({
   bookingType = 'cabin',
-  cabin,
+  assignments = [],
   nights,
   guests,
   rateType = 'general',
@@ -43,8 +44,12 @@ async function calculatePrice({
     rate = await getCorporateRate();
     nightlyRate = rate * guests;
   } else {
-    rate = cabin.basePrice;
-    nightlyRate = cabin.basePrice + cabin.extraGuestPrice * (guests - 1);
+    nightlyRate = assignments.reduce(
+      (sum, item) => sum + item.cabin.basePrice + item.cabin.extraGuestPrice * (item.guests - 1),
+      0
+    );
+    // Precio de referencia: el base de la primera cabina
+    rate = assignments[0]?.cabin.basePrice ?? 0;
   }
 
   const subtotal = nights * nightlyRate;

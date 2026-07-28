@@ -4,6 +4,7 @@ const { cabinStatuses, setCleaningState } = require('../services/cleaningService
 const {
   findAvailableCabins,
   listCabinsWithAvailability,
+  suggestCabins,
   occupancyByDate,
   calendarRange,
   propertyAvailability
@@ -27,6 +28,16 @@ router.put('/:id/cleaning', async (req, res, next) => {
     const { date, state } = req.body;
     await setCleaningState(req.params.id, date, state || null);
     res.json(await cabinStatuses({ date, time: req.body.time }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Combinaciones sugeridas: /api/cabins/suggest?checkIn=&checkOut=&guests=
+router.get('/suggest', async (req, res, next) => {
+  try {
+    const { checkIn, checkOut, guests } = req.query;
+    res.json(await suggestCabins(checkIn, checkOut, guests));
   } catch (error) {
     next(error);
   }

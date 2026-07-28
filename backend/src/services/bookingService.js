@@ -13,32 +13,63 @@ function fail(message, status) {
 }
 
 /**
- * Resuelve que cabinas participan y valida la cantidad de personas.
- * En el alquiler completo participan todas las cabinas activas.
+ * Resuelve que cabinas participan y cuantas personas van en cada una.
+ *
+ * Acepta el formato nuevo (cabins: [{cabinId, guests}]) y el viejo
+ * (cabinId + guests), para que las pantallas migren sin romperse.
  */
-async function resolveTarget({ bookingType = 'cabin', cabinId, guests }) {
-  const guestCount = Number(guests);
-  if (!guestCount || guestCount < 1) throw fail('Indique la cantidad de huespedes', 400);
-
+async function resolveTarget({ bookingType = 'cabin', cabinId, cabins: input, guests }) {
   if (bookingType === 'full') {
-    const cabins = await Cabin.find({ active: true }).sort({ number: 1 });
-    if (cabins.length === 0) throw fail('No hay cabinas activas', 400);
+    const all = await Cabin.find({ active: true }).sort({ number: 1 });
+    if (all.length === 0) throw fail('No hay cabinas activas', 400);
 
-    const capacity = cabins.reduce((sum, cabin) => sum + cabin.capacity, 0);
+    const guestCount = Number(guests);
+    if (!guestCount || guestCount < 1) throw fail('Indique la cantidad de huespedes', 400);
+
+    const capacity = all.reduce((sum, cabin) => sum + cabin.capacity, 0);
     if (guestCount > capacity) {
       throw fail(`La propiedad completa admite un maximo de ${capacity} personas`, 400);
     }
-    return { bookingType, cabins, cabin: null, guestCount };
+
+    return { bookingType, cabins: all, assignments: [], guestCount };
   }
 
-  const cabin = await Cabin.findById(cabinId);
-  if (!cabin) throw fail('La cabina no existe', 404);
-  if (!cabin.active) throw fail('La cabina esta inactiva', 400);
-  if (guestCount > cabin.capacity) {
-    throw fail(`La cabina admite un maximo de ${cabin.capacity} huespedes`, 400);
+  const list =
+    Array.isArray(input) && input.length > 0
+      ? input
+      : cabinId
+        ? [{ cabinId, guests }]
+        : [];
+
+  if (list.length === 0) throw fail('Seleccione al menos una cabina', 400);
+
+  const assignments = [];
+  let guestCount = 0;
+
+  for (const item of list) {
+    const cabin = await Cabin.findById(item.cabinId);
+    if (!cabin) throw fail('Una de las cabinas no existe', 404);
+    if (!cabin.active) throw fail(`${cabin.name} esta inactiva`, 400);
+
+    const count = Number(item.guests);
+    if (!count || count < 1) throw fail(`Indique cuantas personas van en ${cabin.name}`, 400);
+    if (count > cabin.capacity) {
+      throw fail(`${cabin.name} admite un maximo de ${cabin.capacity} personas`, 400);
+    }
+
+    assignments.push({ cabin, guests: count });
+    guestCount += count;
   }
 
-  return { bookingType: 'cabin', cabins: [cabin], cabin, guestCount };
+  const unique = new Set(assignments.map((item) => String(item.cabin._id)));
+  if (unique.size !== assignments.length) throw fail('Hay cabinas repetidas', 400);
+
+  return {
+    bookingType: 'cabin',
+    cabins: assignments.map((item) => item.cabin),
+    assignments,
+    guestCount
+  };
 }
 
 function resolveNights(checkIn, checkOut) {
@@ -50,12 +81,12 @@ function resolveNights(checkIn, checkOut) {
 /** Cotiza sin guardar: para mostrar el monto mientras se llena el formulario. */
 async function quote(payload) {
   const { checkIn, checkOut, rateType = 'general', discountPercent } = payload;
-  const { bookingType, cabin, guestCount } = await resolveTarget(payload);
+  const { bookingType, cabins, assignments, guestCount } = await resolveTarget(payload);
   const nights = resolveNights(checkIn, checkOut);
 
   const price = await calculatePrice({
     bookingType,
-    cabin,
+    assignments,
     nights,
     guests: guestCount,
     rateType,
@@ -72,12 +103,12 @@ async function quote(payload) {
  */
 async function createBooking(payload) {
   const { guestId, checkIn, checkOut, rateType = 'general', discountPercent, notes } = payload;
-  const { bookingType, cabins, cabin, guestCount } = await resolveTarget(payload);
+  const { bookingType, cabins, assignments, guestCount } = await resolveTarget(payload);
   const nights = resolveNights(checkIn, checkOut);
 
   const price = await calculatePrice({
     bookingType,
-    cabin,
+    assignments,
     nights,
     guests: guestCount,
     rateType,
@@ -109,7 +140,8 @@ async function createBooking(payload) {
     return await Booking.create({
       _id: bookingId,
       bookingType,
-      cabinId: bookingType === 'cabin' ? cabin._id : undefined,
+      cabinId: bookingType === 'cabin' ? assignments[0].cabin._id : undefined,
+      assignments: assignments.map((item) => ({ cabinId: item.cabin._id, guests: item.guests })),
       guestId,
       checkIn: toUtcDate(checkIn),
       checkOut: toUtcDate(checkOut),
@@ -313,12 +345,12 @@ async function updateBooking(bookingId, payload) {
     notes: payload.notes ?? booking.notes
   };
 
-  const { bookingType, cabins, cabin, guestCount } = await resolveTarget(merged);
+  const { bookingType, cabins, assignments, guestCount } = await resolveTarget(merged);
   const nights = resolveNights(merged.checkIn, merged.checkOut);
 
   const price = await calculatePrice({
     bookingType,
-    cabin,
+    assignments,
     nights,
     cabinCount: cabins.length,
     guests: guestCount,
@@ -363,7 +395,8 @@ async function updateBooking(bookingId, payload) {
 
   booking.set({
     bookingType,
-    cabinId: bookingType === 'cabin' ? cabin._id : undefined,
+    cabinId: bookingType === 'cabin' ? assignments[0].cabin._id : undefined,
+      assignments: assignments.map((item) => ({ cabinId: item.cabin._id, guests: item.guests })),
     checkIn: toUtcDate(merged.checkIn),
     checkOut: toUtcDate(merged.checkOut),
     nights,
@@ -410,6 +443,70 @@ async function changeStatus(bookingId, status, dateValue) {
   return booking;
 }
 
+/**
+ * Propone una combinacion de cabinas libres para un grupo.
+ *
+ * Prefiere resolverlo con una sola cabina cuando alcanza; si no, arma la
+ * combinacion mas ajustada probando desde la mas grande. Buscar la
+ * combinacion perfecta seria costoso y con 15 cabinas no hace falta.
+ */
+async function suggestCabins(checkIn, checkOut, guests) {
+  const guestCount = Number(guests);
+  if (!guestCount || guestCount < 1) throw fail('Indique la cantidad de huespedes', 400);
+
+  const available = await findAvailableCabins(checkIn, checkOut);
+  const capacity = available.reduce((sum, cabin) => sum + cabin.capacity, 0);
+
+  if (capacity < guestCount) {
+    return { guests: guestCount, capacity, enough: false, options: [] };
+  }
+
+  const options = [];
+
+  // Opcion 1: una sola cabina, la mas ajustada que alcance
+  const single = available
+    .filter((cabin) => cabin.capacity >= guestCount)
+    .sort((a, b) => a.capacity - b.capacity)[0];
+
+  if (single) {
+    options.push({
+      label: 'Una sola cabina',
+      cabins: [{ cabinId: String(single._id), number: single.number, name: single.name, capacity: single.capacity, guests: guestCount }]
+    });
+  }
+
+  // Opcion 2: reparte llenando primero las mas grandes
+  const byLargest = [...available].sort((a, b) => b.capacity - a.capacity);
+  const combo = [];
+  let left = guestCount;
+
+  for (const cabin of byLargest) {
+    if (left <= 0) break;
+
+    // Para el remanente busca la cabina mas chica que alcance: asi no se
+    // bloquea una grande por una sola persona
+    const exact = [...available]
+      .filter((item) => item.capacity >= left && !combo.some((c) => c.cabinId === String(item._id)))
+      .sort((a, b) => a.capacity - b.capacity)[0];
+
+    if (exact) {
+      combo.push({ cabinId: String(exact._id), number: exact.number, name: exact.name, capacity: exact.capacity, guests: left });
+      left = 0;
+      break;
+    }
+
+    const take = Math.min(cabin.capacity, left);
+    combo.push({ cabinId: String(cabin._id), number: cabin.number, name: cabin.name, capacity: cabin.capacity, guests: take });
+    left -= take;
+  }
+
+  if (left === 0 && combo.length > 1) {
+    options.push({ label: `${combo.length} cabinas`, cabins: combo.sort((a, b) => a.number - b.number) });
+  }
+
+  return { guests: guestCount, capacity, enough: true, options };
+}
+
 module.exports = {
   createBooking,
   cancelBooking,
@@ -417,6 +514,7 @@ module.exports = {
   updateBooking,
   getBookingDetail,
   findAvailableCabins,
+  suggestCabins,
   occupancyByDate,
   calendarRange,
   listCabinsWithAvailability,

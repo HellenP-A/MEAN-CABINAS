@@ -198,6 +198,21 @@ export interface IncomeReport {
   worst: ReportRow | null;
 }
 
+export interface SuggestedCabin {
+  cabinId: string;
+  number: number;
+  name: string;
+  capacity: number;
+  guests: number;
+}
+
+export interface CabinSuggestion {
+  guests: number;
+  capacity: number;
+  enough: boolean;
+  options: { label: string; cabins: SuggestedCabin[] }[];
+}
+
 export interface Quote {
   bookingType: string;
   nights: number;
@@ -217,6 +232,13 @@ export interface Quote {
 @Injectable({ providedIn: 'root' })
 export class Api {
   private http = inject(HttpClient);
+
+  /** Solo las cabinas libres en el rango indicado. */
+  availableCabins(checkIn: string, checkOut: string): Observable<Cabin[]> {
+    return this.http.get<Cabin[]>(`${API_URL}/cabins/available`, {
+      params: { checkIn, checkOut }
+    });
+  }
 
   /** Todas las cabinas, en orden, sin importar disponibilidad. */
   cabins(): Observable<Cabin[]> {
@@ -346,6 +368,13 @@ export class Api {
   incomeReport(from: string, to: string, groupBy: string): Observable<IncomeReport> {
     return this.http.get<IncomeReport>(`${API_URL}/reports/income`, {
       params: { from, to, groupBy }
+    });
+  }
+
+  /** Combinaciones de cabinas que cubren a un grupo. */
+  suggestCabins(checkIn: string, checkOut: string, guests: number): Observable<CabinSuggestion> {
+    return this.http.get<CabinSuggestion>(`${API_URL}/cabins/suggest`, {
+      params: { checkIn, checkOut, guests: String(guests) }
     });
   }
 

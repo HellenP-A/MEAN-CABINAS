@@ -16,14 +16,34 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api, Cabin, Company, FrequentGuest, PropertyAvailability, Quote } from '../../core/api';
 import { ThemeToggle } from '../../core/theme-toggle';
 
-/** Convierte la fecha del calendario a AAAA-MM-DD sin desfase de zona horaria. */
+/** Una linea de la reserva: que cabina y cuanta gente va en ella. */
+interface Row {
+  // Identidad propia de la linea: sin esto la lista se sigue por posicion
+  // y al cambiar una fila la vista reutiliza la anterior sin recalcular
+  key: number;
+  cabinId: string;
+  guests: number;
+}
+
+let rowKey = 0;
+const newRow = (): Row => ({ key: ++rowKey, cabinId: '', guests: 1 });
+
+/** Reserva recien guardada, para poder cobrarla sin salir de la pantalla. */
+interface Saved {
+  _id: string;
+  total: number;
+  netTotal: number;
+  taxRate: number;
+  taxAmount: number;
+  guestName: string;
+}
+
 function toIsoDate(date: Date): string {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** Fecha sin hora, para que las comparaciones no dependan del momento del dia. */
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -64,125 +84,185 @@ export class Bookings {
     year: 'numeric'
   }).format(new Date());
 
-  cabins = signal<Cabin[]>([]);
-  selectedCabin = signal<Cabin | null>(null);
+  readonly discounts = [0, 5, 10, 15, 20];
+  readonly methods = [
+    { key: 'cash', label: 'Efectivo' },
+    { key: 'sinpe', label: 'SINPE' },
+    { key: 'transfer', label: 'Transferencia' },
+    { key: 'card', label: 'Tarjeta' },
+    { key: 'other', label: 'Otro' }
+  ];
+
+  // Las 15 cabinas: las ocupadas vienen marcadas y se muestran bloqueadas
+  allCabins = signal<Cabin[]>([]);
+  rows = signal<Row[]>([newRow()]);
+
   property = signal<PropertyAvailability | null>(null);
-  guestOptions = signal<number[]>([]);
-  quote = signal<Quote | null>(null);
-  errorMessage = signal('');
-  saving = signal(false);
-  // Permite ver el monto sin impuesto, para cotizar o comparar
-  showNet = signal(false);
-  loading = signal(false);
   frequent = signal<FrequentGuest[]>([]);
   companies = signal<Company[]>([]);
+  quote = signal<Quote | null>(null);
 
-  // Cuantas quedan libres, para avisar cuando no hay ninguna
-  freeCount = computed(() => this.cabins().filter((cabin) => cabin.available).length);
+  nights = signal(1);
+  loading = signal(false);
+  saving = signal(false);
+  errorMessage = signal('');
+  showNet = signal(false);
 
-  // Huesped ya registrado: evita crearlo de nuevo en cada visita
+  // Paso de cobro: aparece con la reserva ya guardada
+  saved = signal<Saved | null>(null);
+  charging = signal(false);
+
   private knownGuestId = signal<string | null>(null);
-  // Ultima consulta hecha, para no repetirla en cada tecla
   private lastQuery = '';
-  // Tipo de identificacion anterior, para detectar el cambio
   private lastIdType: 'national' | 'foreign' = 'national';
-
-  readonly discounts = [0, 5, 10, 15, 20];
 
   form = this.fb.nonNullable.group({
     bookingType: ['cabin'],
-    // Arranca con hoy y manana: el caso mas comun es registrar a quien acaba de llegar
     checkIn: [this.today as Date | null, Validators.required],
     checkOut: [addDays(this.today, 1) as Date | null, Validators.required],
-    cabinId: [''],
-    guests: [1, [Validators.required, Validators.min(1)]],
-    // El tipo explicito evita que se infiera como string generico
-    companyId: [''],
     idType: ['national' as 'national' | 'foreign'],
     idNumber: ['', Validators.required],
     fullName: ['', Validators.required],
     phone: ['', Validators.pattern(/^\d{4}-\d{4}$/)],
+    companyId: [''],
+    // Solo se usa en puerta cerrada; por cabina el total sale de la suma
+    guests: [1],
     rateType: ['general'],
     discountPercent: [0]
   });
 
-  constructor() {
-    this.form.valueChanges
-      .pipe(debounceTime(300), takeUntilDestroyed())
-      .subscribe(() => {
-        this.syncIdType();
-        this.syncAvailability();
-        this.syncSelectedCabin();
-        this.refreshQuote();
-      });
-
-    this.api.frequentGuests().subscribe((list) => this.frequent.set(list.slice(0, 8)));
-    this.api.companies().subscribe((list) => this.companies.set(list));
-
-    // Con fechas por defecto, la disponibilidad se consulta de una vez
-    this.syncAvailability();
-  }
+  paymentForm = this.fb.nonNullable.group({
+    amount: [''],
+    method: ['cash']
+  });
 
   get isFullProperty(): boolean {
     return this.form.controls.bookingType.value === 'full';
   }
 
-  get hasDates(): boolean {
-    const { checkIn, checkOut } = this.form.getRawValue();
-    return Boolean(checkIn && checkOut);
+  /** Lineas con cabina ya elegida. */
+  private filled = computed(() => this.rows().filter((row) => row.cabinId));
+
+  totalGuests = computed(() => this.filled().reduce((sum, row) => sum + row.guests, 0));
+
+  cabinCount = computed(() => this.filled().length);
+
+  canSave = computed(() => {
+    if (!this.quote()) return false;
+    if (this.isFullProperty) return Boolean(this.property()?.free);
+    return this.filled().length > 0;
+  });
+
+  cabinById(id: string): Cabin | undefined {
+    return this.allCabins().find((cabin) => cabin._id === id);
   }
 
-  /** La salida nunca puede ser el mismo dia de la entrada ni antes. */
-  get minCheckOut(): Date {
-    const checkIn = this.form.controls.checkIn.value;
-    return addDays(checkIn ?? this.today, 1);
+  /** Opciones de personas segun la capacidad de la cabina elegida. */
+  guestOptionsFor(cabinId: string): number[] {
+    const capacity = this.cabinById(cabinId)?.capacity ?? 1;
+    return Array.from({ length: capacity }, (_, index) => index + 1);
+  }
+
+  /** Cabinas ya tomadas en la reserva: ninguna puede repetirse. */
+  private takenIds = computed(
+    () => new Set(this.rows().filter((row) => row.cabinId).map((row) => row.cabinId))
+  );
+
+  /** Ya elegida en otra linea de esta misma reserva. */
+  isTaken(cabin: Cabin, index: number): boolean {
+    return this.rows().some(
+      (row, position) => position !== index && row.cabinId === cabin._id
+    );
+  }
+
+  /** Se bloquea si esta ocupada en esas fechas o ya se eligio en otra linea. */
+  isBlocked(cabin: Cabin, index: number): boolean {
+    if (cabin.available === false) return true;
+    const current = this.rows()[index]?.cabinId;
+    return cabin._id !== current && this.takenIds().has(cabin._id);
+  }
+
+  constructor() {
+    this.api.frequentGuests().subscribe((list) => this.frequent.set(list.slice(0, 8)));
+    this.api.companies().subscribe((list) => this.companies.set(list));
+
+    this.form.valueChanges.pipe(debounceTime(300), takeUntilDestroyed()).subscribe(() => {
+      this.syncIdType();
+      this.syncAvailability();
+      this.refreshQuote();
+    });
+
+    this.form.controls.checkIn.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((checkIn) => this.syncCheckOut(checkIn));
+
+    this.form.controls.checkOut.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.syncNights());
+
+    this.syncNights();
+    this.syncAvailability();
   }
 
   /**
-   * Habilita hoy en adelante y bloquea de ayer hacia atras.
-   * Se usa un filtro y no un minimo porque la comparacion por fecha exacta
-   * dejaba hoy fuera del rango.
+   * Al mover la entrada, la salida pasa siempre al dia siguiente.
+   * Es la estadia mas comun; si son mas noches, se corrige la salida a mano.
    */
-  allowFromToday = (date: Date | null): boolean => {
-    if (!date) return true;
-    return startOfDay(date).getTime() >= this.today.getTime();
-  };
+  private syncCheckOut(checkIn: Date | null): void {
+    if (!checkIn) return;
 
-  /** La salida debe caer despues de la entrada. */
-  allowAfterCheckIn = (date: Date | null): boolean => {
-    if (!date) return true;
-    return startOfDay(date).getTime() >= this.minCheckOut.getTime();
-  };
+    const next = addDays(checkIn, 1);
+    const current = this.form.controls.checkOut.value;
 
-  /** Consulta disponibilidad segun el tipo de reserva elegido. */
-  private syncAvailability(): void {
-    const { checkIn, checkOut, bookingType } = this.form.getRawValue();
+    if (!current || startOfDay(current).getTime() !== next.getTime()) {
+      this.form.controls.checkOut.setValue(next);
+    }
+  }
+
+  /** Noches del rango: la salida no se cobra, por eso es la diferencia simple. */
+  private syncNights(): void {
+    const { checkIn, checkOut } = this.form.getRawValue();
 
     if (!checkIn || !checkOut) {
-      this.cabins.set([]);
-      this.property.set(null);
-      this.lastQuery = '';
+      this.nights.set(0);
       return;
     }
+
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diff = startOfDay(checkOut).getTime() - startOfDay(checkIn).getTime();
+    this.nights.set(Math.max(Math.round(diff / msPerDay), 0));
+  }
+
+  allowFromToday = (date: Date | null): boolean =>
+    !date || startOfDay(date).getTime() >= this.today.getTime();
+
+  allowAfterCheckIn = (date: Date | null): boolean => {
+    if (!date) return true;
+    const checkIn = this.form.controls.checkIn.value ?? this.today;
+    return startOfDay(date).getTime() >= addDays(checkIn, 1).getTime();
+  };
+
+  private syncAvailability(): void {
+    const { checkIn, checkOut, bookingType } = this.form.getRawValue();
+    if (!checkIn || !checkOut) return;
 
     const query = `${bookingType}|${toIsoDate(checkIn)}|${toIsoDate(checkOut)}`;
     if (query === this.lastQuery) return;
     this.lastQuery = query;
     this.loading.set(true);
 
-    if (bookingType === 'full') {
-      this.cabins.set([]);
-      this.selectedCabin.set(null);
+    // Cambiar de fechas invalida lo elegido: puede que ya no esten libres
+    this.rows.set([newRow()]);
+    this.quote.set(null);
 
+    if (bookingType === 'full') {
+      this.allCabins.set([]);
       this.api.propertyAvailability(toIsoDate(checkIn), toIsoDate(checkOut)).subscribe({
         next: (result) => {
           this.loading.set(false);
           this.property.set(result);
         },
-        error: () => {
-          this.loading.set(false);
-          this.property.set(null);
-        }
+        error: () => this.loading.set(false)
       });
       return;
     }
@@ -190,55 +270,61 @@ export class Bookings {
     this.property.set(null);
 
     this.api.cabinsWithAvailability(toIsoDate(checkIn), toIsoDate(checkOut)).subscribe({
-      next: (list) => {
+      next: (list: Cabin[]) => {
         this.loading.set(false);
-        this.cabins.set(list);
-
-        // Si la cabina elegida dejo de estar libre al cambiar las fechas, se limpia
-        const current = this.form.controls.cabinId.value;
-        if (current && !list.some((cabin) => cabin._id === current && cabin.available)) {
-          this.form.controls.cabinId.setValue('', { emitEvent: false });
-          this.quote.set(null);
-        }
-        this.syncSelectedCabin();
+        this.allCabins.set(list);
       },
       error: () => {
         this.loading.set(false);
-        this.cabins.set([]);
+        this.allCabins.set([]);
       }
     });
   }
 
-  /** Publica la cabina elegida y ajusta las opciones de personas a su capacidad. */
-  private syncSelectedCabin(): void {
-    if (this.isFullProperty) {
-      this.selectedCabin.set(null);
-      this.guestOptions.set([]);
-      return;
-    }
+  addRow(): void {
+    this.rows.update((list) => [...list, newRow()]);
+  }
 
-    const cabin = this.cabins().find((item) => item._id === this.form.controls.cabinId.value);
-    this.selectedCabin.set(cabin ?? null);
+  removeRow(index: number): void {
+    this.rows.update((list) => list.filter((_, position) => position !== index));
+    if (this.rows().length === 0) this.rows.set([newRow()]);
+    this.refreshQuote();
+  }
 
-    if (!cabin) {
-      this.guestOptions.set([]);
-      return;
-    }
+  setRowCabin(index: number, cabinId: string): void {
+    // Segunda barrera, por si la opcion llegara a quedar activa
+    const repeated = this.rows().some(
+      (row, position) => position !== index && row.cabinId === cabinId
+    );
+    if (cabinId && repeated) return;
 
-    this.guestOptions.set(Array.from({ length: cabin.capacity }, (_, index) => index + 1));
+    const capacity = this.cabinById(cabinId)?.capacity ?? 1;
 
-    if (this.form.controls.guests.value > cabin.capacity) {
-      this.form.controls.guests.setValue(cabin.capacity, { emitEvent: false });
-    }
+    this.rows.update((list) =>
+      list.map((row, position) =>
+        position === index ? { ...row, cabinId, guests: Math.min(row.guests, capacity) } : row
+      )
+    );
+    this.refreshQuote();
+  }
+
+  setRowGuests(index: number, guests: number): void {
+    this.rows.update((list) =>
+      list.map((row, position) => (position === index ? { ...row, guests } : row))
+    );
+    this.refreshQuote();
   }
 
   private refreshQuote(): void {
     const value = this.form.getRawValue();
-    const ready =
-      value.checkIn &&
-      value.checkOut &&
-      value.guests &&
-      (this.isFullProperty ? this.property()?.free : value.cabinId);
+
+    if (!value.checkIn || !value.checkOut) {
+      this.quote.set(null);
+      return;
+    }
+
+    const guests = this.isFullProperty ? value.guests : this.totalGuests();
+    const ready = this.isFullProperty ? this.property()?.free && guests > 0 : this.filled().length > 0;
 
     if (!ready) {
       this.quote.set(null);
@@ -248,10 +334,10 @@ export class Bookings {
     this.api
       .quote({
         bookingType: value.bookingType,
-        cabinId: value.cabinId || undefined,
-        checkIn: toIsoDate(value.checkIn!),
-        checkOut: toIsoDate(value.checkOut!),
-        guests: value.guests,
+        cabins: this.filled(),
+        checkIn: toIsoDate(value.checkIn),
+        checkOut: toIsoDate(value.checkOut),
+        guests,
         rateType: value.rateType,
         discountPercent: value.discountPercent
       })
@@ -267,11 +353,6 @@ export class Bookings {
       });
   }
 
-  /**
-   * Identificacion costarricense: 1-1234-0567.
-   * Para documentos extranjeros no se toca lo escrito, porque los formatos
-   * de pasaporte y DIMEX no son comparables entre paises.
-   */
   formatId(): void {
     if (this.form.controls.idType.value !== 'national') return;
 
@@ -285,16 +366,17 @@ export class Bookings {
       formatted = `${digits.slice(0, 1)}-${digits.slice(1)}`;
     }
 
-    if (formatted !== control.value) {
-      control.setValue(formatted, { emitEvent: false });
-    }
+    if (formatted !== control.value) control.setValue(formatted, { emitEvent: false });
   }
 
-  /**
-   * Al cambiar entre nacional y extranjero, rehace lo ya escrito:
-   * hacia nacional aplica el formato 1-1234-0567, y hacia extranjero
-   * quita los guiones para poder escribir un pasaporte con libertad.
-   */
+  formatPhone(): void {
+    const control = this.form.controls.phone;
+    const digits = control.value.replace(/\D/g, '').slice(0, 8);
+    const formatted = digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+
+    if (formatted !== control.value) control.setValue(formatted, { emitEvent: false });
+  }
+
   private syncIdType(): void {
     const type = this.form.controls.idType.value;
     if (type === this.lastIdType) return;
@@ -304,48 +386,37 @@ export class Bookings {
 
     if (type === 'national') {
       this.formatId();
+      control.setValidators([Validators.required, Validators.pattern(/^\d-\d{4}-\d{4}$/)]);
     } else {
       const clean = control.value.replace(/-/g, '');
-      if (clean !== control.value) {
-        control.setValue(clean, { emitEvent: false });
-      }
+      if (clean !== control.value) control.setValue(clean, { emitEvent: false });
+      control.setValidators([Validators.required]);
     }
 
-    this.syncIdValidators();
-  }
-
-  /** Exige el formato nacional solo cuando corresponde. */
-  syncIdValidators(): void {
-    const control = this.form.controls.idNumber;
-    const rules = [Validators.required];
-
-    if (this.form.controls.idType.value === 'national') {
-      rules.push(Validators.pattern(/^\d-\d{4}-\d{4}$/));
-    }
-
-    control.setValidators(rules);
     control.updateValueAndValidity({ emitEvent: false });
   }
 
-  /**
-   * Da forma al telefono mientras se escribe: 8765-0987.
-   * Descarta lo que no sea numero y corta en ocho digitos,
-   * asi no hay que acordarse de poner el guion.
-   */
-  formatPhone(): void {
-    const control = this.form.controls.phone;
-    const digits = control.value.replace(/\D/g, '').slice(0, 8);
-    const formatted = digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+  findGuest(): void {
+    const idNumber = this.form.controls.idNumber.value.trim();
+    if (!idNumber) return;
 
-    if (formatted !== control.value) {
-      control.setValue(formatted, { emitEvent: false });
-    }
+    this.api.searchGuests(idNumber).subscribe((list) => {
+      const match = list.find((guest) => guest.idNumber === idNumber);
+
+      if (match) {
+        this.form.patchValue({
+          fullName: match.fullName,
+          phone: match.phone ?? '',
+          idType: match.idType ?? 'national',
+          companyId: match.companyId?._id ?? ''
+        });
+        this.knownGuestId.set(match._id);
+      } else {
+        this.knownGuestId.set(null);
+      }
+    });
   }
 
-  /**
-   * Carga de una vez los datos de un huesped frecuente.
-   * Si viene de una empresa, tambien aplica la tarifa y el descuento pactados.
-   */
   pickGuest(guest: FrequentGuest): void {
     const company = guest.companyId ?? null;
 
@@ -362,21 +433,14 @@ export class Bookings {
     this.knownGuestId.set(guest._id);
   }
 
-  /**
-   * Saca a un huesped del acceso rapido.
-   * No se borra nada: solo deja de aparecer entre los frecuentes.
-   */
   hideGuest(guest: FrequentGuest, event: Event): void {
     event.stopPropagation();
-
     this.frequent.update((list) => list.filter((item) => item._id !== guest._id));
     this.api.updateGuest(guest._id, { hiddenFromFrequent: true }).subscribe();
   }
 
-  /** Al elegir empresa a mano, se traen sus condiciones. */
   applyCompanyDefaults(): void {
-    const id = this.form.controls.companyId.value;
-    const company = this.companies().find((item) => item._id === id);
+    const company = this.companies().find((item) => item._id === this.form.controls.companyId.value);
     if (!company) return;
 
     this.form.patchValue({
@@ -385,47 +449,26 @@ export class Bookings {
     });
   }
 
-  /** Al salir del campo de cedula, completa los datos si ya visito antes. */
-  findGuest(): void {
-    const idNumber = this.form.controls.idNumber.value.trim();
-    if (!idNumber) return;
-
-    this.api.searchGuests(idNumber).subscribe((list) => {
-      const match = list.find((guest) => guest.idNumber === idNumber);
-
-      if (match) {
-        this.form.patchValue({
-          fullName: match.fullName,
-          phone: match.phone ?? '',
-          idType: match.idType ?? 'national'
-        });
-        this.knownGuestId.set(match._id);
-      } else {
-        this.knownGuestId.set(null);
-      }
-    });
-  }
-
   save(): void {
-    const value = this.form.getRawValue();
-
-    if (this.form.invalid || !this.quote() || (!this.isFullProperty && !value.cabinId)) {
+    if (this.form.invalid || !this.canSave()) {
       this.form.markAllAsTouched();
       return;
     }
 
+    const value = this.form.getRawValue();
+    const price = this.quote()!;
+    const guests = this.isFullProperty ? value.guests : this.totalGuests();
     this.saving.set(true);
 
-    // Si el huesped es nuevo se crea primero, luego se guarda la reserva
     const guestId$ = this.knownGuestId()
       ? of(this.knownGuestId()!)
       : this.api
           .createGuest({
             idType: value.idType,
-            companyId: value.companyId || null,
             idNumber: value.idNumber,
             fullName: value.fullName,
-            phone: value.phone
+            phone: value.phone,
+            companyId: value.companyId || null
           })
           .pipe(map((guest) => guest._id));
 
@@ -434,39 +477,32 @@ export class Bookings {
         switchMap((guestId) =>
           this.api.createBooking({
             bookingType: value.bookingType,
-            cabinId: value.cabinId || undefined,
+            cabins: this.filled(),
             guestId,
             checkIn: toIsoDate(value.checkIn!),
             checkOut: toIsoDate(value.checkOut!),
-            guests: value.guests,
+            guests,
             rateType: value.rateType,
             discountPercent: value.discountPercent
           })
         )
       )
       .subscribe({
-        next: () => {
+        next: (booking) => {
           this.saving.set(false);
-          this.snackBar.open('Reserva guardada', 'Cerrar', { duration: 4000 });
-
-          // Vuelve a las fechas de hoy, listo para el siguiente registro
-          this.form.reset({
-            bookingType: 'cabin',
-            idType: 'national',
-            checkIn: this.today,
-            checkOut: addDays(this.today, 1),
-            cabinId: '',
-            guests: 1,
-            rateType: 'general',
-            discountPercent: 0
+          // Pasa al cobro con el total ya sugerido: es lo mas comun en ventanilla
+          this.saved.set({
+            _id: booking._id,
+            total: price.total,
+            netTotal: price.netTotal,
+            taxRate: price.taxRate,
+            taxAmount: price.taxAmount,
+            guestName: value.fullName
           });
-
-          this.knownGuestId.set(null);
-          this.quote.set(null);
-          this.selectedCabin.set(null);
-          this.guestOptions.set([]);
-          this.lastQuery = '';
-          this.syncAvailability();
+          this.paymentForm.patchValue({
+            amount: price.total.toLocaleString('en-US'),
+            method: 'cash'
+          });
         },
         error: (error) => {
           this.saving.set(false);
@@ -475,7 +511,73 @@ export class Bookings {
       });
   }
 
-  /** Formato de colones sin decimales. */
+  formatAmount(): void {
+    const control = this.paymentForm.controls.amount;
+    const digits = String(control.value).replace(/\D/g, '');
+    const formatted = digits ? Number(digits).toLocaleString('en-US') : '';
+
+    if (formatted !== control.value) control.setValue(formatted, { emitEvent: false });
+  }
+
+  chargeFull(): void {
+    const saved = this.saved();
+    if (!saved) return;
+    this.paymentForm.patchValue({ amount: saved.total.toLocaleString('en-US') });
+    this.charge();
+  }
+
+  charge(): void {
+    const saved = this.saved();
+    const value = this.paymentForm.getRawValue();
+    const amount = Number(String(value.amount).replace(/\D/g, ''));
+
+    if (!saved || !amount) return;
+
+    this.charging.set(true);
+
+    this.api.addPayment({ bookingId: saved._id, amount, method: value.method }).subscribe({
+      next: (result) => {
+        this.charging.set(false);
+        const message =
+          result.balance <= 0
+            ? 'Reserva guardada y pagada por completo'
+            : `Reserva guardada · saldo ₡${result.balance.toLocaleString('en-US')}`;
+        this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+        this.reset();
+      },
+      error: (error) => {
+        this.charging.set(false);
+        this.errorMessage.set(error.error?.message ?? 'No fue posible registrar el pago');
+      }
+    });
+  }
+
+  skipPayment(): void {
+    this.snackBar.open('Reserva guardada sin pago', 'Cerrar', { duration: 4000 });
+    this.reset();
+  }
+
+  private reset(): void {
+    this.form.reset({
+      bookingType: 'cabin',
+      checkIn: this.today,
+      checkOut: addDays(this.today, 1),
+      idType: 'national',
+      guests: 1,
+      rateType: 'general',
+      discountPercent: 0
+    });
+
+    this.paymentForm.reset({ amount: '', method: 'cash' });
+    this.saved.set(null);
+    this.rows.set([newRow()]);
+    this.quote.set(null);
+    this.knownGuestId.set(null);
+    this.lastQuery = '';
+    this.syncNights();
+    this.syncAvailability();
+  }
+
   money(value: number): string {
     return `₡${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)}`;
   }

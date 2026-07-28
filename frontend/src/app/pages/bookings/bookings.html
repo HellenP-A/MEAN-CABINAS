@@ -6,7 +6,6 @@
       <nav class="page__nav">
         <a matButton routerLink="/reservadas">Reservadas</a>
         <a matButton routerLink="/calendario">Calendario</a>
-        <a matButton routerLink="/precios">Precios</a>
         <a matButton routerLink="/">Inicio</a>
         <app-theme-toggle />
       </nav>
@@ -15,273 +14,342 @@
     <h1 class="page__title">Nueva reserva</h1>
   </header>
 
-  <form class="form" [formGroup]="form">
-    <section class="block">
-      <h2 class="block__label">Tipo de reserva</h2>
-      <mat-button-toggle-group formControlName="bookingType" class="toggles">
-        <mat-button-toggle value="cabin">Una cabina</mat-button-toggle>
-        <mat-button-toggle value="full">Puerta cerrada</mat-button-toggle>
-      </mat-button-toggle-group>
-    </section>
+  @if (saved(); as booking) {
+    <!-- Paso de cobro: la reserva ya existe, falta el dinero -->
+    <section class="charge">
+      <p class="charge__ok">Reserva guardada para {{ booking.guestName }}</p>
 
-    <section class="block">
-      <h2 class="block__label">Fechas</h2>
+      @if (booking.taxAmount > 0) {
+        <div class="charge__breakdown">
+          <div class="charge__line">
+            <span>Base sin IVA</span>
+            <span>{{ money(booking.netTotal) }}</span>
+          </div>
+          <div class="charge__line">
+            <span>IVA {{ booking.taxRate }} %</span>
+            <span>{{ money(booking.taxAmount) }}</span>
+          </div>
+        </div>
+      }
 
-      <div class="block__row">
+      <p class="charge__label">Total a cobrar, con IVA</p>
+      <p class="charge__total">{{ money(booking.total) }}</p>
+      <p class="charge__ask">¿Paga ahora?</p>
+
+      <button matButton="filled" class="charge__full" [disabled]="charging()" (click)="chargeFull()">
+        Cobrar {{ money(booking.total) }} completo
+      </button>
+
+      <form class="charge__form" [formGroup]="paymentForm">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Entrada</mat-label>
-          <input
-            matInput
-            [matDatepicker]="checkInPicker"
-            [matDatepickerFilter]="allowFromToday"
-            formControlName="checkIn" />
-          <mat-datepicker-toggle matIconSuffix [for]="checkInPicker" />
-          <mat-datepicker #checkInPicker />
+          <mat-label>Otro monto</mat-label>
+          <span matTextPrefix>₡&nbsp;</span>
+          <input matInput inputmode="numeric" formControlName="amount" (input)="formatAmount()" />
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Salida</mat-label>
-          <input
-            matInput
-            [matDatepicker]="checkOutPicker"
-            [matDatepickerFilter]="allowAfterCheckIn"
-            formControlName="checkOut" />
-          <mat-datepicker-toggle matIconSuffix [for]="checkOutPicker" />
-          <mat-datepicker #checkOutPicker />
-        </mat-form-field>
-      </div>
-    </section>
-
-    @if (!isFullProperty) {
-      <section class="block">
-        <h2 class="block__label">Cabina</h2>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cabina</mat-label>
-          <mat-select formControlName="cabinId">
-            @for (cabin of cabins(); track cabin._id) {
-              <mat-option [value]="cabin._id" [disabled]="!cabin.available">
-                {{ cabin.name }} · Admite {{ cabin.capacity }}
-                {{ cabin.capacity === 1 ? 'persona' : 'personas' }}@if (!cabin.available) { · ocupada }
-              </mat-option>
+          <mat-label>Forma de pago</mat-label>
+          <mat-select formControlName="method">
+            @for (item of methods; track item.key) {
+              <mat-option [value]="item.key">{{ item.label }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
 
-        @if (!hasDates) {
-          <p class="note">Elija primero las fechas.</p>
-        } @else if (loading()) {
-          <p class="note">Buscando cabinas libres…</p>
-        } @else if (freeCount() === 0) {
-          <p class="note note--warn">Todas las cabinas están ocupadas en esas fechas.</p>
-        }
+        <button matButton="outlined" [disabled]="charging()" (click)="charge()">Registrar abono</button>
+      </form>
+
+      <button matButton class="charge__skip" (click)="skipPayment()">Queda pendiente de pago</button>
+
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+    </section>
+  } @else {
+    <form class="form" [formGroup]="form">
+      <section class="block">
+        <h2 class="block__label">Tipo de reserva</h2>
+        <mat-button-toggle-group formControlName="bookingType" class="toggles">
+          <mat-button-toggle value="cabin">Por cabina</mat-button-toggle>
+          <mat-button-toggle value="full">Puerta cerrada</mat-button-toggle>
+        </mat-button-toggle-group>
       </section>
 
-      @if (selectedCabin(); as cabin) {
-        <section class="block">
-          <h2 class="block__label">Personas</h2>
-          <p class="note">Esta cabina admite hasta {{ cabin.capacity }} personas.</p>
+      <section class="block">
+        <h2 class="block__label">1 · Fechas</h2>
 
-          <mat-button-toggle-group formControlName="guests" class="toggles toggles--numbers">
-            @for (option of guestOptions(); track option) {
-              <mat-button-toggle [value]="option">{{ option }}</mat-button-toggle>
+        <div class="block__row">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Entrada</mat-label>
+            <input
+              matInput
+              [matDatepicker]="checkInPicker"
+              [matDatepickerFilter]="allowFromToday"
+              formControlName="checkIn" />
+            <mat-datepicker-toggle matIconSuffix [for]="checkInPicker" />
+            <mat-datepicker #checkInPicker />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Salida</mat-label>
+            <input
+              matInput
+              [matDatepicker]="checkOutPicker"
+              [matDatepickerFilter]="allowAfterCheckIn"
+              formControlName="checkOut" />
+            <mat-datepicker-toggle matIconSuffix [for]="checkOutPicker" />
+            <mat-datepicker #checkOutPicker />
+          </mat-form-field>
+        </div>
+
+        <p class="nights">
+          <strong>{{ nights() }}</strong>
+          {{ nights() === 1 ? 'noche seleccionada' : 'noches seleccionadas' }}
+        </p>
+      </section>
+
+      <section class="block">
+        <h2 class="block__label">2 · Huésped principal</h2>
+
+        @if (frequent().length > 0) {
+          <div class="chips">
+            @for (guest of frequent(); track guest._id) {
+              <span class="chip">
+                <button type="button" class="chip__pick" (click)="pickGuest(guest)">
+                  <span class="chip__name">{{ guest.fullName }}</span>
+                  @if (guest.companyId) {
+                    <span class="chip__company">{{ guest.companyId.name }}</span>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="chip__remove"
+                  aria-label="Quitar de la lista"
+                  (click)="hideGuest(guest, $event)">×</button>
+              </span>
             }
+          </div>
+        }
+
+        <mat-button-toggle-group formControlName="idType" class="toggles">
+          <mat-button-toggle value="national">Costarricense</mat-button-toggle>
+          <mat-button-toggle value="foreign">Extranjero</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="block__spaced">
+          <mat-label>Identificación</mat-label>
+          <input
+            matInput
+            formControlName="idNumber"
+            [placeholder]="form.controls.idType.value === 'national' ? '1-1234-0567' : 'Pasaporte o DIMEX'"
+            (input)="formatId()"
+            (blur)="findGuest()" />
+          @if (form.controls.idNumber.hasError('pattern')) {
+            <mat-error>El formato debe ser 1-1234-0567</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Nombre completo</mat-label>
+          <input matInput formControlName="fullName" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Teléfono</mat-label>
+          <input
+            matInput
+            inputmode="tel"
+            maxlength="9"
+            placeholder="9999-9999"
+            formControlName="phone"
+            (input)="formatPhone()" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Empresa</mat-label>
+          <mat-select formControlName="companyId" (selectionChange)="applyCompanyDefaults()">
+            <mat-option value="">Ninguna</mat-option>
+            @for (company of companies(); track company._id) {
+              <mat-option [value]="company._id">{{ company.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </section>
+
+      @if (!isFullProperty) {
+        <section class="block">
+          <h2 class="block__label">3 · Cabinas</h2>
+
+          @if (loading()) {
+            <p class="note">Buscando cabinas…</p>
+          }
+
+          @for (row of rows(); track row.key; let rowIndex = $index) {
+            <div class="cabin-row">
+              <div class="cabin-row__head">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Cabina</mat-label>
+                  <mat-select
+                    [value]="row.cabinId"
+                    (selectionChange)="setRowCabin(rowIndex, $event.value)">
+                    @for (cabin of allCabins(); track cabin._id) {
+                      <mat-option [value]="cabin._id" [disabled]="isBlocked(cabin, rowIndex)">
+                        {{ cabin.name }} · Admite {{ cabin.capacity }}
+                        {{ cabin.capacity === 1 ? 'persona' : 'personas' }}@if (cabin.available === false) { · ocupada } @else if (isTaken(cabin, rowIndex)) { · ya está en esta reserva }
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                @if (rows().length > 1) {
+                  <button matButton class="cabin-row__remove" (click)="removeRow(rowIndex)">
+                    Quitar
+                  </button>
+                }
+              </div>
+
+              @if (row.cabinId) {
+                <div class="guests">
+                  <span class="guests__label">Personas en esta cabina</span>
+                  <mat-button-toggle-group
+                    class="guests__group"
+                    [value]="row.guests"
+                    (change)="setRowGuests(rowIndex, $event.value)">
+                    @for (option of guestOptionsFor(row.cabinId); track option) {
+                      <mat-button-toggle [value]="option">{{ option }}</mat-button-toggle>
+                    }
+                  </mat-button-toggle-group>
+                </div>
+              }
+            </div>
+          }
+
+          <button matButton="outlined" class="add-cabin" (click)="addRow()">
+            Agregar otra cabina
+          </button>
+
+          @if (totalGuests() > 0) {
+            <p class="total-guests">
+              <strong>{{ totalGuests() }}</strong>
+              {{ totalGuests() === 1 ? 'persona en total' : 'personas en total' }}
+              @if (cabinCount() > 1) {
+                · {{ cabinCount() }} cabinas
+              }
+            </p>
+          }
+        </section>
+      } @else {
+        <section class="block">
+          <h2 class="block__label">3 · Propiedad completa</h2>
+
+          @if (loading()) {
+            <p class="note">Verificando disponibilidad…</p>
+          } @else if (property(); as p) {
+            @if (p.free) {
+              <p class="note note--ok">
+                Las {{ p.total }} cabinas están libres. Capacidad total: {{ p.capacity }} personas.
+              </p>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cantidad de personas</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  [max]="p.capacity"
+                  formControlName="guests" />
+              </mat-form-field>
+            } @else {
+              <p class="note note--warn">
+                Solo {{ p.available }} de {{ p.total }} cabinas están libres. No se puede alquilar
+                a puerta cerrada en esas fechas.
+              </p>
+            }
+          }
+        </section>
+      }
+
+      @if (!isFullProperty) {
+        <section class="block">
+          <h2 class="block__label">Tarifa</h2>
+          <mat-button-toggle-group formControlName="rateType" class="toggles">
+            <mat-button-toggle value="general">General</mat-button-toggle>
+            <mat-button-toggle value="corporate">Corporativa</mat-button-toggle>
           </mat-button-toggle-group>
         </section>
       }
-    } @else {
+
       <section class="block">
-        <h2 class="block__label">Propiedad completa</h2>
-
-        @if (!hasDates) {
-          <p class="note">Elija primero las fechas.</p>
-        } @else if (loading()) {
-          <p class="note">Verificando disponibilidad…</p>
-        } @else if (property(); as p) {
-          @if (p.free) {
-            <p class="note note--ok">
-              Las {{ p.total }} cabinas están libres. Capacidad total: {{ p.capacity }} personas.
-            </p>
-          } @else {
-            <p class="note note--warn">
-              Solo {{ p.available }} de {{ p.total }} cabinas están libres. No se puede alquilar
-              a puerta cerrada en esas fechas.
-            </p>
+        <h2 class="block__label">Descuento</h2>
+        <mat-button-toggle-group formControlName="discountPercent" class="toggles">
+          @for (percent of discounts; track percent) {
+            <mat-button-toggle [value]="percent">
+              {{ percent === 0 ? 'Ninguno' : percent + ' %' }}
+            </mat-button-toggle>
           }
-        }
-
-        @if (property()?.free) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Cantidad de personas</mat-label>
-            <input
-              matInput
-              type="number"
-              inputmode="numeric"
-              min="1"
-              [max]="property()!.capacity"
-              formControlName="guests" />
-          </mat-form-field>
-        }
-      </section>
-    }
-
-    <section class="block">
-      <h2 class="block__label">Huésped principal</h2>
-
-      @if (frequent().length > 0) {
-        <div class="chips">
-          @for (guest of frequent(); track guest._id) {
-            <span class="chip">
-              <button type="button" class="chip__pick" (click)="pickGuest(guest)">
-                <span class="chip__name">{{ guest.fullName }}</span>
-                @if (guest.companyId) {
-                  <span class="chip__company">{{ guest.companyId.name }}</span>
-                }
-              </button>
-
-              <button
-                type="button"
-                class="chip__remove"
-                aria-label="Quitar de la lista"
-                (click)="hideGuest(guest, $event)">×</button>
-            </span>
-          }
-        </div>
-      }
-
-      <mat-button-toggle-group formControlName="idType" class="toggles">
-        <mat-button-toggle value="national">Costarricense</mat-button-toggle>
-        <mat-button-toggle value="foreign">Extranjero</mat-button-toggle>
-      </mat-button-toggle-group>
-
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="block__spaced">
-        <mat-label>Identificación</mat-label>
-        <input
-          matInput
-          formControlName="idNumber"
-          [placeholder]="form.controls.idType.value === 'national' ? '1-1234-0567' : 'Pasaporte o DIMEX'"
-          (input)="formatId()"
-          (blur)="findGuest()" />
-        @if (form.controls.idNumber.hasError('pattern')) {
-          <mat-error>El formato debe ser 1-1234-0567</mat-error>
-        }
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Nombre completo</mat-label>
-        <input matInput formControlName="fullName" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Teléfono</mat-label>
-        <input
-          matInput
-          inputmode="tel"
-          maxlength="9"
-          placeholder="9999-9999"
-          formControlName="phone"
-          (input)="formatPhone()" />
-        @if (form.controls.phone.hasError('pattern')) {
-          <mat-error>Debe tener ocho dígitos</mat-error>
-        }
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Empresa</mat-label>
-        <mat-select formControlName="companyId" (selectionChange)="applyCompanyDefaults()">
-          <mat-option value="">Ninguna</mat-option>
-          @for (company of companies(); track company._id) {
-            <mat-option [value]="company._id">{{ company.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    </section>
-
-    @if (!isFullProperty) {
-      <section class="block">
-        <h2 class="block__label">Tarifa</h2>
-        <mat-button-toggle-group formControlName="rateType" class="toggles">
-          <mat-button-toggle value="general">General</mat-button-toggle>
-          <mat-button-toggle value="corporate">Corporativa</mat-button-toggle>
         </mat-button-toggle-group>
       </section>
-    }
+    </form>
 
-    <section class="block">
-      <h2 class="block__label">Descuento</h2>
-      <mat-button-toggle-group formControlName="discountPercent" class="toggles">
-        @for (percent of discounts; track percent) {
-          <mat-button-toggle [value]="percent">
-            {{ percent === 0 ? 'Ninguno' : percent + ' %' }}
-          </mat-button-toggle>
-        }
-      </mat-button-toggle-group>
-    </section>
-  </form>
+    <section class="summary">
+      @if (quote(); as q) {
+        <p class="summary__detail">
+          {{ q.nights }} {{ q.nights === 1 ? 'noche' : 'noches' }} ×
+          {{ money(q.nightlyRate) }} por noche
+          <br />
+          {{ q.guests }} {{ q.guests === 1 ? 'persona' : 'personas' }}
+          @if (q.bookingType === 'full') {
+            · puerta cerrada
+          } @else if (q.rateType === 'corporate') {
+            · corporativa, {{ money(q.rate) }} por persona
+          }
+        </p>
 
-  <section class="summary">
-    @if (quote(); as q) {
-      <p class="summary__detail">
-        {{ q.nights }} {{ q.nights === 1 ? 'noche' : 'noches' }} ×
-        {{ money(q.nightlyRate) }} por noche
-        <br />
-        {{ q.guests }} {{ q.guests === 1 ? 'persona' : 'personas' }}
-        @if (q.bookingType === 'full') {
-          · puerta cerrada
-        } @else if (q.rateType === 'corporate') {
-          · corporativa, {{ money(q.rate) }} por persona
-        }
-      </p>
-
-      <div class="summary__line">
-        <span>Subtotal</span>
-        <span>{{ money(q.subtotal) }}</span>
-      </div>
-
-      @if (q.discountAmount > 0) {
-        <div class="summary__line summary__line--discount">
-          <span>Descuento {{ q.discountPercent }} %</span>
-          <span>− {{ money(q.discountAmount) }}</span>
-        </div>
-      }
-
-      @if (q.taxAmount > 0) {
         <div class="summary__line">
-          <span>Base sin IVA</span>
-          <span>{{ money(q.netTotal) }}</span>
+          <span>Subtotal</span>
+          <span>{{ money(q.subtotal) }}</span>
         </div>
-        <div class="summary__line">
-          <span>IVA {{ q.taxRate }} %</span>
-          <span>{{ money(q.taxAmount) }}</span>
+
+        @if (q.discountAmount > 0) {
+          <div class="summary__line summary__line--discount">
+            <span>Descuento {{ q.discountPercent }} %</span>
+            <span>− {{ money(q.discountAmount) }}</span>
+          </div>
+        }
+
+        @if (q.taxAmount > 0) {
+          <div class="summary__line">
+            <span>Base sin IVA</span>
+            <span>{{ money(q.netTotal) }}</span>
+          </div>
+          <div class="summary__line">
+            <span>IVA {{ q.taxRate }} %</span>
+            <span>{{ money(q.taxAmount) }}</span>
+          </div>
+        }
+
+        <div class="summary__total">
+          <span>{{ showNet() ? 'Total sin IVA' : 'Total a cobrar' }}</span>
+          <strong>{{ money(showNet() ? q.netTotal : q.total) }}</strong>
         </div>
+
+        @if (q.taxAmount > 0) {
+          <button type="button" class="summary__switch" (click)="showNet.set(!showNet())">
+            {{ showNet() ? 'Ver con IVA' : 'Ver sin IVA' }}
+          </button>
+        }
       } @else {
-        <p class="summary__exempt">Esta tarifa no lleva IVA.</p>
+        <p class="summary__empty">Complete los datos para ver el monto.</p>
       }
 
-      <div class="summary__total">
-        <span>{{ showNet() ? 'Total sin IVA' : 'Total a cobrar' }}</span>
-        <strong>{{ money(showNet() ? q.netTotal : q.total) }}</strong>
-      </div>
-
-      @if (q.taxAmount > 0) {
-        <button type="button" class="summary__switch" (click)="showNet.set(!showNet())">
-          {{ showNet() ? 'Ver con IVA' : 'Ver sin IVA' }}
-        </button>
+      @if (errorMessage()) {
+        <p class="summary__error">{{ errorMessage() }}</p>
       }
-    } @else {
-      <p class="summary__empty">Complete los datos para ver el monto.</p>
-    }
+    </section>
 
-    @if (errorMessage()) {
-      <p class="summary__error">{{ errorMessage() }}</p>
-    }
-  </section>
-
-  <button
-    matButton="filled"
-    class="save"
-    (click)="save()"
-    [disabled]="saving() || !quote()">
-    Guardar reserva
-  </button>
+    <button matButton="filled" class="save" (click)="save()" [disabled]="saving() || !canSave()">
+      Guardar reserva
+    </button>
+  }
 </main>

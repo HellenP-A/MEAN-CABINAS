@@ -13,6 +13,15 @@ const bookingSchema = new mongoose.Schema(
         return this.bookingType === 'cabin';
       }
     },
+    // Detalle por cabina: permite que un mismo huesped ocupe varias.
+    // cabinId arriba queda como la primera, para las vistas que muestran una sola.
+    assignments: [
+      {
+        _id: false,
+        cabinId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cabin' },
+        guests: { type: Number, min: 1 }
+      }
+    ],
     guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest', required: true },
     checkIn: { type: Date, required: true },
     checkOut: { type: Date, required: true },
