@@ -5,13 +5,13 @@ const ALLOWED_DISCOUNTS = [0, 5, 10, 15, 20];
 /**
  * Calcula el monto de una reserva.
  *
- *   por cabina, general     -> cada cabina cobra su base mas sus adicionales,
- *                              y se suman todas las cabinas de la reserva
+ *   por cabina, general     -> cada cabina cobra su base mas sus adicionales
  *   por cabina, corporativa -> tarifa por huesped x personas
  *   puerta cerrada          -> por persona, o un monto fijo por noche
  *
- * Los precios son netos. Sobre el subtotal se aplica el descuento y sobre ese
- * neto se calcula el IVA, que puede estar activo o no segun la tarifa.
+ * IVA: la general y la puerta cerrada son netas (el impuesto se suma encima).
+ * La corporativa YA lo trae adentro: se desglosa, no se suma.
+ * Si applyTax viene en false, la reserva se registra sin IVA.
  */
 async function calculatePrice({
   bookingType = 'cabin',
@@ -19,7 +19,8 @@ async function calculatePrice({
   nights,
   guests,
   rateType = 'general',
-  discountPercent = 0
+  discountPercent = 0,
+  applyTax
 }) {
   const percent = Number(discountPercent) || 0;
   if (!ALLOWED_DISCOUNTS.includes(percent)) {
@@ -48,24 +49,42 @@ async function calculatePrice({
       (sum, item) => sum + item.cabin.basePrice + item.cabin.extraGuestPrice * (item.guests - 1),
       0
     );
-    // Precio de referencia: el base de la primera cabina
     rate = assignments[0]?.cabin.basePrice ?? 0;
   }
 
   const subtotal = nights * nightlyRate;
   const discountAmount = Math.round((subtotal * percent) / 100);
-  const netTotal = subtotal - discountAmount;
+  const afterDiscount = subtotal - discountAmount;
 
   const tax = await getTax();
-  const applies =
+
+  let applies =
     bookingType === 'full'
       ? tax.applyToFull
       : rateType === 'corporate'
         ? tax.applyToCorporate
         : tax.applyToGeneral;
 
+  // La eleccion al guardar manda: "sin IVA" registra la reserva sin impuesto
+  if (applyTax === false) applies = false;
+
   const taxRate = applies ? Number(tax.rate) : 0;
-  const taxAmount = Math.round((netTotal * taxRate) / 100);
+  const included = applies && bookingType !== 'full' && rateType === 'corporate';
+
+  let netTotal;
+  let taxAmount;
+  let total;
+
+  if (included) {
+    // El precio corporativo es bruto: la base sale de dividir, no de sumar
+    total = afterDiscount;
+    netTotal = Math.round(total / (1 + taxRate / 100));
+    taxAmount = total - netTotal;
+  } else {
+    netTotal = afterDiscount;
+    taxAmount = Math.round((netTotal * taxRate) / 100);
+    total = netTotal + taxAmount;
+  }
 
   return {
     rate,
@@ -76,7 +95,7 @@ async function calculatePrice({
     netTotal,
     taxRate,
     taxAmount,
-    total: netTotal + taxAmount
+    total
   };
 }
 

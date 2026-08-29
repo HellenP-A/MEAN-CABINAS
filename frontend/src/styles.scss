@@ -84,3 +84,19 @@ html {
 html.dark {
   --today: #97a3ff;
 }
+
+/* --- Telefono y tablet --- */
+
+@media (max-width: 640px) {
+  // Menos margen: en el telefono cada pixel de ancho cuenta
+  main {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+// En iOS, un campo con letra menor a 16px hace zoom al tocarlo.
+// Con esto el formulario se mantiene quieto.
+input, textarea, .mat-mdc-select {
+  font-size: 16px;
+}

@@ -1,5 +1,6 @@
 const express = require('express');
 const { Payment, Booking } = require('../models');
+const { maybeInvoiceBooking } = require('../services/invoiceService');
 
 const router = express.Router();
 
@@ -22,8 +23,15 @@ router.post('/', async (req, res, next) => {
     // Saldo actualizado, para mostrarlo de una vez en pantalla
     const payments = await Payment.find({ bookingId: booking._id });
     const paid = payments.reduce((sum, item) => sum + item.amount, 0);
+    const balance = booking.total - paid;
 
-    res.status(201).json({ payment, paid, balance: booking.total - paid });
+    // Disparo automatico de factura: al llegar el saldo a cero se encola
+    // la emision en segundo plano; la respuesta al cliente no espera a Hacienda
+    if (balance <= 0) {
+      maybeInvoiceBooking(booking._id);
+    }
+
+    res.status(201).json({ payment, paid, balance });
   } catch (error) {
     next(error);
   }

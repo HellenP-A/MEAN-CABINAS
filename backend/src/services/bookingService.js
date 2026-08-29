@@ -276,19 +276,38 @@ async function calendarRange(fromValue, dayCount = 14) {
 
   const bookingIds = [...new Set(nights.map((night) => String(night.bookingId)))];
   const bookings = await Booking.find({ _id: { $in: bookingIds } })
-    .populate('guestId', 'idNumber idType fullName phone')
+    .populate('guestId', 'idNumber idType fullName phone email')
     .lean();
+
+  // Facturas por reserva: el detalle muestra a que correo se envio
+  const { invoicesByBooking } = require('./invoiceService');
+  const invoiceMap = await invoicesByBooking(bookings.map((item) => item._id));
+
+  // Abonos por reserva: definen si esta pagada, a medias o sin pagar
+  const paidRows = await Payment.aggregate([
+    { $match: { bookingId: { $in: bookings.map((item) => item._id) } } },
+    { $group: { _id: '$bookingId', paid: { $sum: '$amount' } } }
+  ]);
+
+  const paidByBooking = new Map(paidRows.map((row) => [String(row._id), row.paid]));
 
   const bookingById = {};
   bookings.forEach((booking) => {
+    const paid = paidByBooking.get(String(booking._id)) ?? 0;
+    const balance = booking.total - paid;
+    const invoice = invoiceMap[String(booking._id)];
+
     bookingById[String(booking._id)] = {
+      paid,
+      balance,
+      paymentStatus: balance <= 0 ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
       _id: String(booking._id),
       bookingType: booking.bookingType,
       guestName: booking.guestId?.fullName ?? 'Sin responsable',
       idNumber: booking.guestId?.idNumber ?? '',
       idType: booking.guestId?.idType ?? 'national',
-      idType: booking.guestId?.idType ?? 'national',
       phone: booking.guestId?.phone ?? '',
+      email: booking.guestId?.email ?? '',
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
       nights: booking.nights,
@@ -299,7 +318,12 @@ async function calendarRange(fromValue, dayCount = 14) {
       taxRate: booking.taxRate ?? 0,
       taxAmount: booking.taxAmount ?? 0,
       total: booking.total,
-      status: booking.status
+      status: booking.status,
+      invoiceId: invoice ? String(invoice._id) : null,
+      invoiceStatus: invoice ? invoice.status : null,
+      invoiceEmail: invoice?.receptor?.email ?? '',
+      invoiceConsecutivo: invoice?.consecutivo ?? null,
+      invoiceEmailSentAt: invoice?.emailSentAt ?? null
     };
   });
 
@@ -507,6 +531,58 @@ async function suggestCabins(checkIn, checkOut, guests) {
   return { guests: guestCount, capacity, enough: true, options };
 }
 
+/**
+ * Reservas con su estado de pago, para la pantalla de cobros.
+ * El color lo decide el saldo: pagada, con abono parcial o sin pagar.
+ */
+async function listWithPayments() {
+  const bookings = await Booking.find({ status: { $ne: 'cancelled' } })
+    .populate('guestId', 'idNumber fullName phone')
+    .populate('cabinId', 'number name')
+    .sort({ checkIn: -1 })
+    .limit(200)
+    .lean();
+
+  const paidRows = await Payment.aggregate([
+    { $match: { bookingId: { $in: bookings.map((item) => item._id) } } },
+    { $group: { _id: '$bookingId', paid: { $sum: '$amount' } } }
+  ]);
+  const paidByBooking = new Map(paidRows.map((row) => [String(row._id), row.paid]));
+
+  // Estado de factura electronica por reserva, para el badge en /pagos
+  const { invoicesByBooking } = require('./invoiceService');
+  const invoiceMap = await invoicesByBooking(bookings.map((item) => item._id));
+
+  return bookings.map((booking) => {
+    const paid = paidByBooking.get(String(booking._id)) ?? 0;
+    const balance = booking.total - paid;
+    const invoice = invoiceMap[String(booking._id)];
+
+    return {
+      _id: String(booking._id),
+      bookingType: booking.bookingType,
+      cabinName:
+        booking.bookingType === 'full' ? 'Puerta cerrada' : booking.cabinId?.name ?? 'Sin cabina',
+      cabinCount: booking.cabinCount ?? 1,
+      guestName: booking.guestId?.fullName ?? 'Sin responsable',
+      phone: booking.guestId?.phone ?? '',
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      nights: booking.nights,
+      guests: booking.guests,
+      status: booking.status,
+      total: booking.total,
+      paid,
+      balance,
+      paymentStatus: balance <= 0 ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
+      invoiceId: invoice ? String(invoice._id) : null,
+      invoiceStatus: invoice ? invoice.status : null,
+      invoiceConsecutivo: invoice?.consecutivo ?? null,
+      invoicePdfUrl: invoice?.pdfUrl ?? null
+    };
+  });
+}
+
 module.exports = {
   createBooking,
   cancelBooking,
@@ -517,6 +593,7 @@ module.exports = {
   suggestCabins,
   occupancyByDate,
   calendarRange,
+  listWithPayments,
   listCabinsWithAvailability,
   propertyAvailability,
   quote

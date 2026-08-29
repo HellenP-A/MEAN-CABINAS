@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { debounceTime, map, of, switchMap } from 'rxjs';
@@ -13,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { Api, Cabin, Company, FrequentGuest, PropertyAvailability, Quote } from '../../core/api';
+import { Api, Cabin, FrequentGuest, PropertyAvailability, Quote } from '../../core/api';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 /** Una linea de la reserva: que cabina y cuanta gente va en ella. */
@@ -99,15 +99,18 @@ export class Bookings {
 
   property = signal<PropertyAvailability | null>(null);
   frequent = signal<FrequentGuest[]>([]);
-  companies = signal<Company[]>([]);
   quote = signal<Quote | null>(null);
 
   nights = signal(1);
   loading = signal(false);
   saving = signal(false);
   errorMessage = signal('');
-  showNet = signal(false);
-
+  // Con senales el boton de cobro se redibuja al instante
+  payTax = signal(true);
+  chargeAmount = signal(0);
+  // El resumen sigue al interruptor de IVA: un solo toque cambia todos los montos
+  // El resumen acompana la eleccion de IVA del cobro
+  showNet = computed(() => !this.payTax());
   // Paso de cobro: aparece con la reserva ya guardada
   saved = signal<Saved | null>(null);
   charging = signal(false);
@@ -124,17 +127,24 @@ export class Bookings {
     idNumber: ['', Validators.required],
     fullName: ['', Validators.required],
     phone: ['', Validators.pattern(/^\d{4}-\d{4}$/)],
-    companyId: [''],
+    // Correo del cliente: a el llega la factura electronica automatica
+    email: ['', Validators.email],
     // Solo se usa en puerta cerrada; por cabina el total sale de la suma
     guests: [1],
     rateType: ['general'],
-    discountPercent: [0]
+    discountPercent: [0],
+    paymentAmount: [''],
+    paymentMethod: ['cash']
   });
 
   paymentForm = this.fb.nonNullable.group({
     amount: [''],
     method: ['cash']
   });
+
+  // El template necesita reaccionar al correo digitado (los FormControl
+  // leidos directo en el template no son reactivos)
+  emailValue = toSignal(this.form.controls.email.valueChanges, { initialValue: '' });
 
   get isFullProperty(): boolean {
     return this.form.controls.bookingType.value === 'full';
@@ -184,7 +194,6 @@ export class Bookings {
 
   constructor() {
     this.api.frequentGuests().subscribe((list) => this.frequent.set(list.slice(0, 8)));
-    this.api.companies().subscribe((list) => this.companies.set(list));
 
     this.form.valueChanges.pipe(debounceTime(300), takeUntilDestroyed()).subscribe(() => {
       this.syncIdType();
@@ -345,12 +354,49 @@ export class Bookings {
         next: (result) => {
           this.quote.set(result);
           this.errorMessage.set('');
+          this.syncPaymentAmount();
         },
         error: (error) => {
           this.quote.set(null);
           this.errorMessage.set(error.error?.message ?? 'No fue posible calcular el monto');
         }
       });
+  }
+
+  /** Deja el monto sugerido igual al total, con o sin IVA segun se elija. */
+  private syncPaymentAmount(): void {
+    const price = this.quote();
+    if (!price) return;
+
+    const value = this.payTax() ? price.total : price.netTotal;
+    this.form.controls.paymentAmount.setValue(value.toLocaleString('en-US'), { emitEvent: false });
+    this.chargeAmount.set(value);
+  }
+
+  /** Monto que se va a cobrar, ya limpio de separadores. */
+  paymentAmount(): number {
+    return this.chargeAmount();
+  }
+
+  /** Lo que corresponde cobrar segun el interruptor de IVA. */
+  chargeTarget(): number {
+    const price = this.quote();
+    if (!price) return 0;
+    return this.payTax() ? price.total : price.netTotal;
+  }
+
+  formatPaymentAmount(): void {
+    const control = this.form.controls.paymentAmount;
+    const digits = String(control.value).replace(/\D/g, '');
+    const formatted = digits ? Number(digits).toLocaleString('en-US') : '';
+
+    if (formatted !== control.value) control.setValue(formatted, { emitEvent: false });
+    this.chargeAmount.set(Number(digits) || 0);
+  }
+
+  useTax(withTax: boolean): void {
+    this.payTax.set(withTax);
+    this.syncPaymentAmount();
   }
 
   formatId(): void {
@@ -407,8 +453,9 @@ export class Bookings {
         this.form.patchValue({
           fullName: match.fullName,
           phone: match.phone ?? '',
+          email: match.email ?? '',
           idType: match.idType ?? 'national',
-          companyId: match.companyId?._id ?? ''
+          idNumber: match.idNumber
         });
         this.knownGuestId.set(match._id);
       } else {
@@ -425,7 +472,7 @@ export class Bookings {
       idNumber: guest.idNumber,
       fullName: guest.fullName,
       phone: guest.phone ?? '',
-      companyId: company?._id ?? '',
+      email: guest.email ?? '',
       rateType: company?.rateType ?? this.form.controls.rateType.value,
       discountPercent: company?.discountPercent ?? this.form.controls.discountPercent.value
     });
@@ -439,36 +486,33 @@ export class Bookings {
     this.api.updateGuest(guest._id, { hiddenFromFrequent: true }).subscribe();
   }
 
-  applyCompanyDefaults(): void {
-    const company = this.companies().find((item) => item._id === this.form.controls.companyId.value);
-    if (!company) return;
-
-    this.form.patchValue({
-      rateType: company.rateType,
-      discountPercent: company.discountPercent
-    });
-  }
-
-  save(): void {
+  save(collect: boolean): void {
     if (this.form.invalid || !this.canSave()) {
       this.form.markAllAsTouched();
       return;
     }
 
     const value = this.form.getRawValue();
-    const price = this.quote()!;
     const guests = this.isFullProperty ? value.guests : this.totalGuests();
+    const amount = collect ? this.paymentAmount() : 0;
     this.saving.set(true);
 
-    const guestId$ = this.knownGuestId()
-      ? of(this.knownGuestId()!)
+    const email = value.email.trim();
+    const knownId = this.knownGuestId();
+
+    // Si el huesped ya existe y se digito un correo, se guarda de una vez:
+    // es el correo al que llega la factura electronica
+    const guestId$ = knownId
+      ? email
+        ? this.api.updateGuest(knownId, { email }).pipe(map(() => knownId))
+        : of(knownId)
       : this.api
           .createGuest({
             idType: value.idType,
             idNumber: value.idNumber,
             fullName: value.fullName,
             phone: value.phone,
-            companyId: value.companyId || null
+            email
           })
           .pipe(map((guest) => guest._id));
 
@@ -483,26 +527,33 @@ export class Bookings {
             checkOut: toIsoDate(value.checkOut!),
             guests,
             rateType: value.rateType,
-            discountPercent: value.discountPercent
+            discountPercent: value.discountPercent,
+            applyTax: this.payTax()
           })
+        ),
+        // El cobro va en la misma accion: no hay una segunda pantalla
+        switchMap((booking) =>
+          amount > 0
+            ? this.api.addPayment({
+                bookingId: booking._id,
+                amount,
+                method: value.paymentMethod
+              })
+            : of(null)
         )
       )
       .subscribe({
-        next: (booking) => {
+        next: (result) => {
           this.saving.set(false);
-          // Pasa al cobro con el total ya sugerido: es lo mas comun en ventanilla
-          this.saved.set({
-            _id: booking._id,
-            total: price.total,
-            netTotal: price.netTotal,
-            taxRate: price.taxRate,
-            taxAmount: price.taxAmount,
-            guestName: value.fullName
-          });
-          this.paymentForm.patchValue({
-            amount: price.total.toLocaleString('en-US'),
-            method: 'cash'
-          });
+
+          const message = !result
+            ? 'Reserva guardada, queda pendiente de pago'
+            : result.balance <= 0
+              ? 'Reserva guardada y pagada por completo'
+              : `Reserva guardada · saldo ₡${result.balance.toLocaleString('en-US')}`;
+
+          this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+          this.reset();
         },
         error: (error) => {
           this.saving.set(false);
@@ -565,11 +616,14 @@ export class Bookings {
       idType: 'national',
       guests: 1,
       rateType: 'general',
-      discountPercent: 0
+      discountPercent: 0,
+      paymentAmount: '',
+      paymentMethod: 'cash'
     });
 
+    this.payTax.set(true);
+    this.chargeAmount.set(0);
     this.paymentForm.reset({ amount: '', method: 'cash' });
-    this.saved.set(null);
     this.rows.set([newRow()]);
     this.quote.set(null);
     this.knownGuestId.set(null);

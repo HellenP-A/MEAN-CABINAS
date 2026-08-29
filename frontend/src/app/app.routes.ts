@@ -4,6 +4,7 @@ import { authGuard, adminGuard } from './core/guards';
 import { Bookings } from './pages/bookings/bookings';
 import { Calendar } from './pages/calendar/calendar';
 import { Login } from './pages/login/login';
+import { Payments } from './pages/payments/payments';
 import { Occupancy } from './pages/occupancy/occupancy';
 import { Reports } from './pages/reports/reports';
 import { Settings } from './pages/settings/settings';
@@ -16,6 +17,7 @@ export const routes: Routes = [
   { path: 'reservas', component: Bookings, canActivate: [authGuard] },
   { path: 'reservadas', component: Occupancy, canActivate: [authGuard] },
   { path: 'calendario', component: Calendar, canActivate: [authGuard] },
+  { path: 'pagos', component: Payments, canActivate: [authGuard] },
 
   // Precios queda reservado al administrador
   { path: 'precios', component: Settings, canActivate: [adminGuard] },

@@ -669,3 +669,34 @@ mat-form-field {
     color: var(--river-soft);
   }
 }
+
+.pay-block {
+  margin-top: 16px;
+}
+
+// Aire entre los interruptores y los campos del cobro
+.pay-block__fields {
+  margin-top: 14px;
+}
+
+// Correo al que llega la factura electronica cuando el cobro es con IVA
+.pay-block__email {
+  width: 100%;
+  margin-top: 14px;
+}
+
+/* --- Dos formas de cerrar la reserva --- */
+
+.save-row {
+  display: grid;
+  gap: 10px;
+}
+
+// Cobrar es lo mas frecuente: va primero y lleno; guardar sin cobrar
+// queda visible pero secundario
+.save-skip {
+  width: 100%;
+  height: 52px;
+  font-size: 1rem;
+  border-radius: 16px;
+}

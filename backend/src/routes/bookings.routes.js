@@ -1,6 +1,7 @@
 const express = require('express');
 const { Booking } = require('../models');
 const {
+  listWithPayments,
   createBooking,
   cancelBooking,
   changeStatus,
@@ -34,6 +35,15 @@ router.get('/', async (req, res, next) => {
         .populate('guestId', 'idNumber fullName')
         .sort({ checkIn: 1 })
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Estado de pago de todas las reservas: /api/bookings/payments-board
+router.get('/payments-board', async (req, res, next) => {
+  try {
+    res.json(await listWithPayments());
   } catch (error) {
     next(error);
   }

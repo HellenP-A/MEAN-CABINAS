@@ -609,3 +609,132 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* --- Estado de pago --- */
+/* El color de la barra dice cuanto falta cobrar, de un vistazo */
+
+.bar--paid {
+  background: #2e7d32;
+  color: #ffffff;
+}
+
+.bar--partial {
+  background: #ef6c00;
+  color: #ffffff;
+}
+
+.bar--unpaid {
+  background: #b3261e;
+  color: #ffffff;
+}
+
+.legend__dot--paid {
+  background: #2e7d32;
+}
+
+.legend__dot--partial {
+  background: #ef6c00;
+  margin-left: 10px;
+}
+
+.legend__dot--unpaid {
+  background: #b3261e;
+  margin-left: 10px;
+}
+
+/* --- Resumen de pago en el detalle --- */
+
+.paysum {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--surface-line);
+}
+
+.paysum__due {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #b3261e;
+}
+
+.badge--paid { background: #2e7d32; color: #ffffff; }
+.badge--partial { background: #ef6c00; color: #ffffff; }
+.badge--unpaid { background: #b3261e; color: #ffffff; }
+
+/* --- Factura electronica en el detalle --- */
+
+.badge--inv-accepted { background: #1d6f6b; color: #ffffff; }
+.badge--inv-queued,
+.badge--inv-processing { background: #4f5bd5; color: #ffffff; }
+.badge--inv-rejected,
+.badge--inv-error { background: #b3261e; color: #ffffff; }
+.badge--inv-manual_required { background: #e8a33d; color: #3a2a00; }
+
+.invoice {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--surface-line);
+}
+
+.invoice__title {
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.invoice__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.invoice__meta {
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+.invoice__sent {
+  margin: 10px 0 0;
+  font-size: 0.9375rem;
+}
+
+.invoice__resend {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+// Input sencillo con la misma linea del resto de la tarjeta
+.invoice__input {
+  flex: 1;
+  min-width: 220px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 1rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--surface-line);
+  border-radius: 10px;
+}
+
+.invoice__msg {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  background: rgba(232, 163, 61, 0.16);
+  border-left: 4px solid #e8a33d;
+}
+
+.invoice__none {
+  margin: 16px 0 0;
+  font-size: 0.9375rem;
+  opacity: 0.7;
+}

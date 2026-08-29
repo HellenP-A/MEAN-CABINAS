@@ -4,8 +4,9 @@
       <p class="page__date">{{ todayLabel }}</p>
 
       <nav class="page__nav">
-        <a matButton routerLink="/reservadas">Reservadas</a>
-        <a matButton routerLink="/calendario">Calendario</a>
+        <a matButton routerLink="/reservadas">Estado de cabinas</a>
+        <a matButton routerLink="/calendario">Reservadas</a>
+        <a matButton routerLink="/pagos">Pagos</a>
         <a matButton routerLink="/">Inicio</a>
         <app-theme-toggle />
       </nav>
@@ -14,58 +15,6 @@
     <h1 class="page__title">Nueva reserva</h1>
   </header>
 
-  @if (saved(); as booking) {
-    <!-- Paso de cobro: la reserva ya existe, falta el dinero -->
-    <section class="charge">
-      <p class="charge__ok">Reserva guardada para {{ booking.guestName }}</p>
-
-      @if (booking.taxAmount > 0) {
-        <div class="charge__breakdown">
-          <div class="charge__line">
-            <span>Base sin IVA</span>
-            <span>{{ money(booking.netTotal) }}</span>
-          </div>
-          <div class="charge__line">
-            <span>IVA {{ booking.taxRate }} %</span>
-            <span>{{ money(booking.taxAmount) }}</span>
-          </div>
-        </div>
-      }
-
-      <p class="charge__label">Total a cobrar, con IVA</p>
-      <p class="charge__total">{{ money(booking.total) }}</p>
-      <p class="charge__ask">¿Paga ahora?</p>
-
-      <button matButton="filled" class="charge__full" [disabled]="charging()" (click)="chargeFull()">
-        Cobrar {{ money(booking.total) }} completo
-      </button>
-
-      <form class="charge__form" [formGroup]="paymentForm">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Otro monto</mat-label>
-          <span matTextPrefix>₡&nbsp;</span>
-          <input matInput inputmode="numeric" formControlName="amount" (input)="formatAmount()" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Forma de pago</mat-label>
-          <mat-select formControlName="method">
-            @for (item of methods; track item.key) {
-              <mat-option [value]="item.key">{{ item.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <button matButton="outlined" [disabled]="charging()" (click)="charge()">Registrar abono</button>
-      </form>
-
-      <button matButton class="charge__skip" (click)="skipPayment()">Queda pendiente de pago</button>
-
-      @if (errorMessage()) {
-        <p class="error">{{ errorMessage() }}</p>
-      }
-    </section>
-  } @else {
     <form class="form" [formGroup]="form">
       <section class="block">
         <h2 class="block__label">Tipo de reserva</h2>
@@ -165,15 +114,6 @@
             (input)="formatPhone()" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Empresa</mat-label>
-          <mat-select formControlName="companyId" (selectionChange)="applyCompanyDefaults()">
-            <mat-option value="">Ninguna</mat-option>
-            @for (company of companies(); track company._id) {
-              <mat-option [value]="company._id">{{ company.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
       </section>
 
       @if (!isFullProperty) {
@@ -290,6 +230,75 @@
           }
         </mat-button-toggle-group>
       </section>
+      <section class="block">
+        <h2 class="block__label">Pago</h2>
+
+        @if (quote(); as q) {
+          <div class="pay-block">
+            <mat-button-toggle-group
+              class="toggles"
+              [value]="payTax()"
+              (change)="useTax($event.value)">
+              <mat-button-toggle [value]="true">Con IVA · {{ money(q.total) }}</mat-button-toggle>
+              <mat-button-toggle [value]="false">Sin IVA · {{ money(q.netTotal) }}</mat-button-toggle>
+            </mat-button-toggle-group>
+
+            <div class="block__row pay-block__fields">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Monto que recibe</mat-label>
+                <span matTextPrefix>₡&nbsp;</span>
+                <input
+                  matInput
+                  inputmode="numeric"
+                  formControlName="paymentAmount"
+                  (input)="formatPaymentAmount()" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Forma de pago</mat-label>
+                <mat-select formControlName="paymentMethod">
+                  @for (item of methods; track item.key) {
+                    <mat-option [value]="item.key">{{ item.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            @if (paymentAmount() > 0 && paymentAmount() < chargeTarget()) {
+              <p class="note note--warn">
+                Es un abono parcial: queda un saldo de {{ money(chargeTarget() - paymentAmount()) }}
+              </p>
+            }
+
+            @if (payTax()) {
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="pay-block__email">
+                <mat-label>Correo para la factura electrónica</mat-label>
+                <input matInput type="email" inputmode="email" formControlName="email" />
+                @if (form.controls.email.invalid) {
+                  <mat-error>Revise el formato del correo</mat-error>
+                }
+              </mat-form-field>
+
+              @if (!emailValue()) {
+                <p class="note note--warn">
+                  <strong>Sin correo</strong> la factura electrónica no le llegará
+                  automáticamente al cliente al completar el pago.
+                </p>
+              } @else {
+                <p class="note note--ok">
+                  Al quedar pagada, la factura electrónica (XML y PDF) se enviará sola a
+                  <strong>{{ emailValue() }}</strong>
+                </p>
+              }
+            }
+          </div>
+        } @else {
+          <p class="note">El pago se habilita al elegir fechas y cabina.</p>
+        }
+      </section>
     </form>
 
     <section class="summary">
@@ -335,7 +344,7 @@
         </div>
 
         @if (q.taxAmount > 0) {
-          <button type="button" class="summary__switch" (click)="showNet.set(!showNet())">
+          <button type="button" class="summary__switch" (click)="useTax(!payTax())">
             {{ showNet() ? 'Ver con IVA' : 'Ver sin IVA' }}
           </button>
         }
@@ -348,8 +357,21 @@
       }
     </section>
 
-    <button matButton="filled" class="save" (click)="save()" [disabled]="saving() || !canSave()">
-      Guardar reserva
-    </button>
-  }
+    <div class="save-row">
+      <button
+        matButton="filled"
+        class="save"
+        (click)="save(true)"
+        [disabled]="saving() || !canSave() || paymentAmount() === 0">
+        Monto a cobrar {{ money(paymentAmount()) }}
+      </button>
+
+      <button
+        matButton="outlined"
+        class="save-skip"
+        (click)="save(false)"
+        [disabled]="saving() || !canSave()">
+        Reservar
+      </button>
+    </div>
 </main>

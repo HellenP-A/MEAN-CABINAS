@@ -2,7 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-const API_URL = 'http://localhost:3000/api';
+// La direccion se arma con el host desde donde se abrio la app:
+// en la Mac es localhost, y desde un telefono es la IP de la Mac
+export const API_URL = `http://${window.location.hostname}:3000/api`;
 
 export interface Cabin {
   _id: string;
@@ -30,6 +32,9 @@ export interface Guest {
   idNumber: string;
   fullName: string;
   phone?: string;
+  // Correo para el envio automatico de la factura electronica
+  email?: string;
+  address?: string;
   companyId?: Company | null;
 }
 
@@ -43,6 +48,8 @@ export interface GuestInput {
   idNumber: string;
   fullName: string;
   phone?: string;
+  email?: string;
+  address?: string;
   companyId?: string | null;
 }
 
@@ -93,11 +100,15 @@ export interface CabinOccupancy extends Cabin {
 
 export interface CalendarBooking {
   _id: string;
+  paid: number;
+  balance: number;
+  paymentStatus: 'paid' | 'partial' | 'unpaid';
   bookingType: 'cabin' | 'full';
   guestName: string;
   idNumber: string;
   idType: 'national' | 'foreign';
   phone: string;
+  email: string;
   checkIn: string;
   checkOut: string;
   nights: number;
@@ -109,6 +120,11 @@ export interface CalendarBooking {
   taxAmount: number;
   total: number;
   status: string;
+  invoiceId: string | null;
+  invoiceStatus: InvoiceStatus | null;
+  invoiceEmail: string;
+  invoiceConsecutivo: string | null;
+  invoiceEmailSentAt: string | null;
 }
 
 export interface CalendarCabin {
@@ -211,6 +227,62 @@ export interface CabinSuggestion {
   capacity: number;
   enough: boolean;
   options: { label: string; cabins: SuggestedCabin[] }[];
+}
+
+export interface PaymentBoardItem {
+  _id: string;
+  bookingType: 'cabin' | 'full';
+  cabinName: string;
+  cabinCount: number;
+  guestName: string;
+  phone: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+  status: string;
+  total: number;
+  paid: number;
+  balance: number;
+  paymentStatus: 'paid' | 'partial' | 'unpaid';
+  invoiceId: string | null;
+  invoiceStatus: InvoiceStatus | null;
+  invoiceConsecutivo: string | null;
+  invoicePdfUrl: string | null;
+}
+
+export type InvoiceStatus =
+  | 'queued'
+  | 'processing'
+  | 'accepted'
+  | 'rejected'
+  | 'error'
+  | 'manual_required';
+
+export interface Invoice {
+  _id: string;
+  bookingId: string;
+  provider: string;
+  status: InvoiceStatus;
+  consecutivo?: string;
+  claveNumerica?: string;
+  receptor?: {
+    nombre?: string;
+    idType?: string;
+    idNumber?: string;
+    email?: string;
+    telefono?: string;
+    direccion?: string;
+  };
+  netTotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  pdfUrl?: string;
+  emailSentAt?: string;
+  attempts: number;
+  lastError?: string;
+  createdAt: string;
 }
 
 export interface Quote {
@@ -376,6 +448,33 @@ export class Api {
     return this.http.get<CabinSuggestion>(`${API_URL}/cabins/suggest`, {
       params: { checkIn, checkOut, guests: String(guests) }
     });
+  }
+
+  /** Todas las reservas con su estado de pago. */
+  paymentsBoard(): Observable<PaymentBoardItem[]> {
+    return this.http.get<PaymentBoardItem[]>(`${API_URL}/bookings/payments-board`);
+  }
+
+  invoices(filter?: { status?: string; bookingId?: string }): Observable<Invoice[]> {
+    return this.http.get<Invoice[]>(`${API_URL}/invoices`, { params: { ...filter } });
+  }
+
+  retryInvoice(id: string): Observable<Invoice> {
+    return this.http.post<Invoice>(`${API_URL}/invoices/${id}/retry`, {});
+  }
+
+  resendInvoice(
+    id: string,
+    email?: string
+  ): Observable<{ invoice: Invoice; sent: boolean; message?: string }> {
+    return this.http.post<{ invoice: Invoice; sent: boolean; message?: string }>(
+      `${API_URL}/invoices/${id}/resend`,
+      { email }
+    );
+  }
+
+  createInvoiceForBooking(bookingId: string): Observable<Invoice> {
+    return this.http.post<Invoice>(`${API_URL}/invoices/booking/${bookingId}`, {});
   }
 
   searchGuests(search: string): Observable<Guest[]> {

@@ -3,6 +3,8 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 
+import { API_URL } from './api';
+
 const TOKEN_KEY = 'cabinas-token';
 const USER_KEY = 'cabinas-user';
 
@@ -40,7 +42,7 @@ export class Auth {
 
   login(username: string, password: string): Observable<{ token: string; user: SessionUser }> {
     return this.http
-      .post<{ token: string; user: SessionUser }>('http://localhost:3000/api/auth/login', {
+      .post<{ token: string; user: SessionUser }>(`${API_URL}/auth/login`, {
         username,
         password
       })

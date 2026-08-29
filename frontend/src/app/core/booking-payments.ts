@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { MatButtonModule } from '@angular/material/button';
@@ -86,10 +86,26 @@ const METHODS: Record<string, string> = {
             </mat-select>
           </mat-form-field>
 
-          <button matButton="filled" class="pay__add" [disabled]="saving()" (click)="add()">
-            Registrar abono
+          <button
+            matButton="filled"
+            class="pay__add"
+            [disabled]="saving() || amountValue() === 0"
+            (click)="add()">
+            @if (amountValue() >= balance() && balance() > 0) {
+              Cobrar todo · {{ money(amountValue()) }}
+            } @else if (amountValue() > 0) {
+              Registrar abono · {{ money(amountValue()) }}
+            } @else {
+              Registrar abono
+            }
           </button>
         </form>
+
+        @if (amountValue() > 0 && amountValue() < balance()) {
+          <p class="pay__partial">
+            Es un abono parcial: quedará un saldo de {{ money(balance() - amountValue()) }}
+          </p>
+        }
 
         @if (errorMessage()) {
           <p class="pay__error">{{ errorMessage() }}</p>
@@ -204,6 +220,12 @@ const METHODS: Record<string, string> = {
       color: #b3261e;
       font-weight: 500;
     }
+
+    .pay__partial {
+      margin: 10px 0 0;
+      color: #ef6c00;
+      font-weight: 600;
+    }
   `
 })
 export class BookingPayments {
@@ -212,6 +234,9 @@ export class BookingPayments {
 
   bookingId = input.required<string>();
 
+  // Avisa a la pantalla que lo contiene que el saldo cambio
+  changed = output<void>();
+
   payments = signal<Payment[]>([]);
   total = signal(0);
   paid = signal(0);
@@ -219,6 +244,9 @@ export class BookingPayments {
   loading = signal(true);
   saving = signal(false);
   errorMessage = signal('');
+  // Monto digitado, en senal: el boton y el aviso de abono parcial
+  // se redibujan al instante (el FormControl en el template no es reactivo)
+  amountValue = signal(0);
 
   readonly methodOptions = Object.entries(METHODS).map(([key, label]) => ({ key, label }));
 
@@ -245,6 +273,13 @@ export class BookingPayments {
         this.total.set(detail.booking.total);
         this.paid.set(detail.paid);
         this.balance.set(detail.balance);
+        // El monto sugerido es el saldo completo: cobrar todo es un solo
+        // clic y para un abono parcial basta editar el numero
+        this.form.controls.amount.setValue(
+          detail.balance > 0 ? detail.balance.toLocaleString('en-US') : '',
+          { emitEvent: false }
+        );
+        this.amountValue.set(detail.balance > 0 ? detail.balance : 0);
         this.loading.set(false);
       },
       error: () => {
@@ -266,6 +301,7 @@ export class BookingPayments {
     if (formatted !== control.value) {
       control.setValue(formatted, { emitEvent: false });
     }
+    this.amountValue.set(Number(digits) || 0);
   }
 
   add(): void {
@@ -286,7 +322,9 @@ export class BookingPayments {
         next: () => {
           this.saving.set(false);
           this.form.reset({ amount: '', method: 'cash' });
+          this.amountValue.set(0);
           this.load(this.bookingId());
+          this.changed.emit();
         },
         error: (error) => {
           this.saving.set(false);
@@ -297,7 +335,10 @@ export class BookingPayments {
 
   remove(id: string): void {
     this.api.deletePayment(id).subscribe({
-      next: () => this.load(this.bookingId()),
+      next: () => {
+        this.load(this.bookingId());
+        this.changed.emit();
+      },
       error: () => this.errorMessage.set('No fue posible quitar el abono')
     });
   }

@@ -7,6 +7,11 @@ const companySchema = new mongoose.Schema(
     name: { type: String, required: true, unique: true, trim: true },
     contactName: { type: String, trim: true },
     phone: { type: String, trim: true },
+    // Datos para la factura electronica: cedula juridica y correo de
+    // cuentas por pagar (no el del huesped que se hospeda)
+    idNumber: { type: String, trim: true },
+    email: { type: String, trim: true, lowercase: true },
+    address: { type: String, trim: true },
     rateType: { type: String, enum: ['general', 'corporate'], default: 'corporate' },
     discountPercent: { type: Number, default: 0, enum: [0, 5, 10, 15, 20] },
     notes: { type: String, trim: true },

@@ -1,0 +1,156 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.page__header {
+  margin-bottom: 22px;
+}
+
+.page__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+.page__date {
+  margin: 0;
+  font-family: var(--mat-sys-brand-family);
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--river-mid);
+}
+
+.page__date::first-letter {
+  text-transform: uppercase;
+}
+
+.page__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.page__title {
+  margin: 20px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.filters {
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+
+  .mat-button-toggle-label-content {
+    line-height: 46px;
+  }
+}
+
+.due {
+  margin: 0 0 18px;
+  font-size: 1.0625rem;
+
+  strong {
+    font-family: var(--mat-sys-brand-family);
+    font-size: 1.5rem;
+    color: #b3261e;
+  }
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+// La franja lateral repite el codigo de color del calendario
+.card {
+  padding: 16px 18px;
+  border: 1px solid var(--surface-line);
+  border-radius: 16px;
+  background: var(--surface);
+  border-left: 6px solid transparent;
+}
+
+.card--paid { border-left-color: #2e7d32; }
+.card--partial { border-left-color: #ef6c00; }
+.card--unpaid { border-left-color: #b3261e; }
+
+.card__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.card__who {
+  flex: 1;
+  min-width: 200px;
+}
+
+.card__guest {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.card__meta {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  opacity: 0.65;
+}
+
+.card__money {
+  text-align: right;
+}
+
+.badge {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.badge--paid { background: #2e7d32; }
+.badge--partial { background: #ef6c00; }
+.badge--unpaid { background: #b3261e; }
+
+// Estado de la factura electronica
+.badge--invoice { margin-top: 4px; }
+.badge--inv-accepted { background: #1d6f6b; }
+.badge--inv-queued,
+.badge--inv-processing { background: #4f5bd5; }
+.badge--inv-rejected,
+.badge--inv-error { background: #b3261e; }
+.badge--inv-manual_required { background: #e8a33d; color: #3a2a00; }
+
+.card__balance {
+  margin: 6px 0 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.card__balance--zero {
+  opacity: 0.6;
+  font-weight: 500;
+}
+
+.card__action {
+  flex: 0 0 auto;
+}
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  opacity: 0.6;
+}

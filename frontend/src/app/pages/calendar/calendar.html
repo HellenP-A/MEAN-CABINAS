@@ -5,8 +5,9 @@
 
       <nav class="page__nav">
         <a matButton routerLink="/reservas">Agregar huésped</a>
-        <a matButton routerLink="/reservadas">Reservadas</a>
+        <a matButton routerLink="/reservadas">Estado de cabinas</a>
         <a matButton routerLink="/precios">Precios</a>
+        <a matButton routerLink="/pagos">Pagos</a>
         <a matButton routerLink="/">Inicio</a>
         <app-theme-toggle />
       </nav>
@@ -63,7 +64,9 @@
                 <button
                   type="button"
                   class="bar"
-                  [class.bar--full]="booking.bookingType === 'full'"
+                  [class.bar--paid]="booking.paymentStatus === 'paid'"
+                  [class.bar--partial]="booking.paymentStatus === 'partial'"
+                  [class.bar--unpaid]="booking.paymentStatus === 'unpaid'"
                   [class.bar--selected]="isSelected(segment.bookingId)"
                   [style.gridColumn]="segment.colStart + ' / span ' + segment.colSpan"
                   [title]="row.name + ' · ' + booking.guestName"
@@ -83,8 +86,9 @@
     </div>
 
     <p class="legend">
-      <span class="legend__dot legend__dot--busy"></span> Reservada
-      <span class="legend__dot legend__dot--full"></span> Puerta cerrada
+      <span class="legend__dot legend__dot--paid"></span> Pagada
+      <span class="legend__dot legend__dot--partial"></span> Abono parcial
+      <span class="legend__dot legend__dot--unpaid"></span> Sin pagar
       <span class="legend__dot legend__dot--today"></span> Hoy
       <span class="legend__hint">Las barras cortan a media casilla: salida en la mañana, entrada en la tarde</span>
     </p>
@@ -115,6 +119,10 @@
             <div><dt>Personas</dt><dd>{{ current.booking.guests }}</dd></div>
             <div><dt>Identificación</dt><dd>{{ current.booking.idNumber || '—' }}</dd></div>
             <div><dt>Teléfono</dt><dd>{{ current.booking.phone || '—' }}</dd></div>
+            <div>
+              <dt>Correo</dt>
+              <dd>{{ current.booking.invoiceEmail || current.booking.email || '—' }}</dd>
+            </div>
             <div>
               <dt>Tarifa</dt>
               <dd>
@@ -159,7 +167,60 @@
             <p class="detail__label">Reserva registrada sin IVA</p>
           }
 
-          <app-booking-payments [bookingId]="current.booking._id" />
+          <div class="paysum">
+            <span class="badge" [class]="'badge--' + current.booking.paymentStatus">
+              @if (current.booking.paymentStatus === 'paid') { Pagada }
+              @else if (current.booking.paymentStatus === 'partial') { Abono parcial }
+              @else { Sin pagar }
+            </span>
+            @if (current.booking.balance > 0) {
+              <span class="paysum__due">Saldo {{ money(current.booking.balance) }}</span>
+            }
+            <a matButton routerLink="/pagos">Gestionar pagos</a>
+          </div>
+
+          @if (current.booking.invoiceStatus; as invStatus) {
+            <div class="invoice">
+              <p class="invoice__title">Factura electrónica</p>
+
+              <div class="invoice__row">
+                <span class="badge" [class]="'badge--inv-' + invStatus">
+                  {{ invoiceLabel(invStatus) }}
+                </span>
+                @if (current.booking.invoiceConsecutivo) {
+                  <span class="invoice__meta">N° …{{ current.booking.invoiceConsecutivo.slice(-4) }}</span>
+                }
+              </div>
+
+              @if (invStatus === 'accepted' && (current.booking.invoiceEmail || current.booking.email)) {
+                <p class="invoice__sent">
+                  Enviada a <strong>{{ current.booking.invoiceEmail || current.booking.email }}</strong>
+                </p>
+              }
+
+              <div class="invoice__resend">
+                <input
+                  #resendMail
+                  class="invoice__input"
+                  type="email"
+                  placeholder="Otro correo (cortesía, opcional)" />
+                <button
+                  matButton="outlined"
+                  [disabled]="resending()"
+                  (click)="resendInvoice(resendMail.value)">
+                  Reenviar factura
+                </button>
+              </div>
+
+              @if (invoiceMessage()) {
+                <p class="invoice__msg">{{ invoiceMessage() }}</p>
+              }
+            </div>
+          } @else if (current.booking.paymentStatus === 'paid') {
+            <p class="invoice__none">
+              Pagada sin factura electrónica registrada (anterior a la función o pendiente de encolar).
+            </p>
+          }
 
           @if (confirmingDelete()) {
             <div class="danger">

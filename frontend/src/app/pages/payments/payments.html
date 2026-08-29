@@ -1,0 +1,88 @@
+<main class="page">
+  <header class="page__header">
+    <div class="page__bar">
+      <p class="page__date">{{ todayLabel }}</p>
+
+      <nav class="page__nav">
+        <a matButton routerLink="/reservas">Agregar huésped</a>
+        <a matButton routerLink="/calendario">Reservadas</a>
+        <a matButton routerLink="/">Inicio</a>
+        <app-theme-toggle />
+      </nav>
+    </div>
+
+    <h1 class="page__title">Pagos</h1>
+  </header>
+
+  <mat-button-toggle-group class="filters" [value]="filter()">
+    <mat-button-toggle value="due" (click)="setFilter('due')">Con saldo</mat-button-toggle>
+    <mat-button-toggle value="unpaid" (click)="setFilter('unpaid')">
+      Sin pagar ({{ counts().unpaid }})
+    </mat-button-toggle>
+    <mat-button-toggle value="partial" (click)="setFilter('partial')">
+      Parciales ({{ counts().partial }})
+    </mat-button-toggle>
+    <mat-button-toggle value="paid" (click)="setFilter('paid')">
+      Pagadas ({{ counts().paid }})
+    </mat-button-toggle>
+    <mat-button-toggle value="all" (click)="setFilter('all')">Todas</mat-button-toggle>
+  </mat-button-toggle-group>
+
+  @if (filter() !== 'paid' && dueTotal() > 0) {
+    <p class="due">
+      Falta por cobrar <strong>{{ money(dueTotal()) }}</strong>
+    </p>
+  }
+
+  @if (loading()) {
+    <p class="empty">Cargando…</p>
+  } @else if (visible().length === 0) {
+    <p class="empty">No hay reservas en esta vista.</p>
+  } @else {
+    <ul class="list">
+      @for (item of visible(); track item._id) {
+        <li class="card" [class]="'card--' + item.paymentStatus">
+          <div class="card__row">
+            <div class="card__who">
+              <p class="card__guest">{{ item.guestName }}</p>
+              <p class="card__meta">
+                {{ item.cabinName }}@if (item.cabinCount > 1) { +{{ item.cabinCount - 1 }} } ·
+                {{ formatDate(item.checkIn) }} → {{ formatDate(item.checkOut) }} ·
+                {{ item.guests }} {{ item.guests === 1 ? 'persona' : 'personas' }}
+              </p>
+            </div>
+
+            <div class="card__money">
+              <span class="badge" [class]="'badge--' + item.paymentStatus">
+                {{ statusLabel(item.paymentStatus) }}
+              </span>
+              @if (item.invoiceStatus) {
+                <span class="badge badge--invoice" [class]="'badge--inv-' + item.invoiceStatus">
+                  {{ invoiceLabel(item.invoiceStatus) }}
+                  @if (item.invoiceConsecutivo) {
+                    · N° {{ shortConsecutivo(item.invoiceConsecutivo) }}
+                  }
+                </span>
+              }
+              <p class="card__balance" [class.card__balance--zero]="item.balance <= 0">
+                @if (item.balance > 0) {
+                  Saldo {{ money(item.balance) }}
+                } @else {
+                  {{ money(item.total) }}
+                }
+              </p>
+            </div>
+
+            <button matButton="outlined" class="card__action" (click)="toggle(item._id)">
+              {{ openId() === item._id ? 'Cerrar' : item.balance > 0 ? 'Cobrar' : 'Ver pagos' }}
+            </button>
+          </div>
+
+          @if (openId() === item._id) {
+            <app-booking-payments [bookingId]="item._id" (changed)="load()" />
+          }
+        </li>
+      }
+    </ul>
+  }
+</main>

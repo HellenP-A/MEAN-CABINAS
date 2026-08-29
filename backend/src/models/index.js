@@ -7,6 +7,7 @@ module.exports = {
   Booking: require('./Booking'),
   OccupiedNight: require('./OccupiedNight'),
   Payment: require('./Payment'),
+  Invoice: require('./Invoice'),
   Setting: require('./Setting'),
   User: require('./User')
 };

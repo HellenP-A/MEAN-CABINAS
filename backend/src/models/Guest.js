@@ -9,6 +9,10 @@ const guestSchema = new mongoose.Schema(
     idNumber: { type: String, required: true, unique: true, trim: true },
     fullName: { type: String, required: true, trim: true },
     phone: { type: String, trim: true },
+    // Datos para la factura electronica; opcionales (sin correo se emite
+    // a consumidor final y no se bloquea el flujo)
+    email: { type: String, trim: true, lowercase: true },
+    address: { type: String, trim: true },
     // Empresa que lo envia, si corresponde. Un huesped particular no lleva ninguna
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
     // Se oculta del acceso rapido sin borrar al huesped ni sus reservas

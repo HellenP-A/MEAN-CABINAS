@@ -35,6 +35,7 @@ app.use('/api/companies', require('./routes/companies.routes'));
 app.use('/api/guests', require('./routes/guests.routes'));
 app.use('/api/bookings', require('./routes/bookings.routes'));
 app.use('/api/payments', require('./routes/payments.routes'));
+app.use('/api/invoices', requireAuth, require('./routes/invoices.routes'));
 
 app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 app.use(errorHandler);
@@ -44,6 +45,10 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log('Conexion a MongoDB establecida');
+    // Retoma facturas que quedaron en cola si el server se reinicio
+    require('./services/invoiceService')
+      .resumePendingInvoices()
+      .catch((error) => console.error('No fue posible retomar facturas:', error.message));
     app.listen(port, '0.0.0.0', () => console.log(`API escuchando en el puerto ${port}`));
   })
   .catch((error) => {

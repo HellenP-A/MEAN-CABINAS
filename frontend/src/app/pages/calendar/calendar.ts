@@ -11,7 +11,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api, CalendarBooking, CalendarData } from '../../core/api';
-import { BookingPayments } from '../../core/booking-payments';
 import { ThemeToggle } from '../../core/theme-toggle';
 
 /** Tramo en medias casillas: cada dia son dos columnas. */
@@ -35,6 +34,14 @@ interface Selection {
   cabinName: string;
   cabinNumber: number;
   cabinCapacity: number;
+}
+
+/** Lunes de la semana a la que pertenece la fecha. */
+function mondayOf(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const weekday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - weekday);
+  return date.toISOString().slice(0, 10);
 }
 
 function shiftIso(iso: string, days: number): string {
@@ -65,8 +72,7 @@ function fromIso(iso: string): Date {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    ThemeToggle,
-    BookingPayments
+    ThemeToggle
   ],
   providers: [provideNativeDateAdapter()],
   templateUrl: './calendar.html',
@@ -78,10 +84,11 @@ export class Calendar {
   private snackBar = inject(MatSnackBar);
 
   readonly todayIso = new Date().toLocaleDateString('sv-SE');
-  readonly dayCount = 14;
+  readonly dayCount = 7;
   readonly discounts = [0, 5, 10, 15, 20];
 
-  from = signal(this.todayIso);
+  // La vista siempre encuadra semanas completas, de lunes a domingo
+  from = signal(mondayOf(this.todayIso));
   data = signal<CalendarData | null>(null);
   loading = signal(true);
   selected = signal<Selection | null>(null);
@@ -92,6 +99,9 @@ export class Calendar {
   // Permite ver el monto sin impuesto, para cotizar o comparar
   showNet = signal(false);
   errorMessage = signal('');
+  // Reenvio de cortesia de la factura electronica
+  resending = signal(false);
+  invoiceMessage = signal('');
 
   editForm = this.fb.nonNullable.group({
     checkIn: [null as Date | null],
@@ -185,7 +195,7 @@ export class Calendar {
   }
 
   goToday(): void {
-    this.from.set(this.todayIso);
+    this.from.set(mondayOf(this.todayIso));
     this.closeDetail();
     this.load();
   }
@@ -200,6 +210,7 @@ export class Calendar {
     this.editing.set(false);
     this.confirmingDelete.set(false);
     this.errorMessage.set('');
+    this.invoiceMessage.set('');
 
     if (!booking || !row) {
       this.selected.set(null);
@@ -219,6 +230,7 @@ export class Calendar {
     this.editing.set(false);
     this.confirmingDelete.set(false);
     this.errorMessage.set('');
+    this.invoiceMessage.set('');
   }
 
   isSelected(id: string | null): boolean {
@@ -307,6 +319,51 @@ export class Calendar {
         this.working.set(false);
         this.confirmingDelete.set(false);
         this.errorMessage.set(error.error?.message ?? 'No fue posible eliminar la reserva');
+      }
+    });
+  }
+
+  invoiceLabel(status: string | null): string {
+    switch (status) {
+      case 'accepted':
+        return 'Factura enviada';
+      case 'queued':
+      case 'processing':
+        return 'Facturando…';
+      case 'rejected':
+        return 'Factura rechazada';
+      case 'error':
+        return 'Error de factura';
+      case 'manual_required':
+        return 'Facturar en portal GTI';
+      default:
+        return 'Sin factura';
+    }
+  }
+
+  /**
+   * Reenvio de cortesia: al correo registrado, o al alterno que digite
+   * el cliente. El alterno se guarda para las proximas facturas.
+   */
+  resendInvoice(altEmail: string): void {
+    const current = this.selected();
+    const invoiceId = current?.booking.invoiceId;
+    if (!invoiceId) return;
+
+    this.resending.set(true);
+    this.invoiceMessage.set('');
+
+    this.api.resendInvoice(invoiceId, altEmail.trim() || undefined).subscribe({
+      next: (result) => {
+        this.resending.set(false);
+        this.invoiceMessage.set(
+          result.sent ? 'Factura reenviada al cliente' : (result.message ?? '')
+        );
+        this.load();
+      },
+      error: (error) => {
+        this.resending.set(false);
+        this.invoiceMessage.set(error.error?.message ?? 'No fue posible reenviar la factura');
       }
     });
   }
